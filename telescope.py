@@ -182,61 +182,6 @@ class Telescope:
         w = np.sinc(k_distances)
         return w
 
-#    def _make_intramolecular_correlation_matrix(self):
-#        sites_in_species = []
-#        end = 0
-#        start_index = 0
-#        for i in [len(self._solvent["multy"]), ]:
-#            begin = end 
-#            end = end + i
-#            number_of_sites = np.sum(self._solvent["multy"][begin:end])
-#            stop_index = start_index + number_of_sites
-#            sites_indexes = list(range(start_index, stop_index))
-#            start_index = stop_index
-#            sites_in_species.append(sites_indexes)
-#        coordinates = self._solvent["xyz"]
-#        nsites = coordinates.shape[0]
-#        distances = np.zeros((nsites, nsites))
-#        for sites in sites_in_species:
-#            for pair in itertools.permutations(sites, 2):
-#                distances[pair] = np.linalg.norm(coordinates[pair[0]]
-#                                                 - coordinates[pair[1]])
-#        np.fill_diagonal(distances, 0)
-#        k = np.linalg.norm(self._k_grid, axis=0)
-##        k_distances = np.tensordot(distances, k, axes=0)
-#        k_distances = np.tensordot(distances, k, axes=0) * 2 * np.pi
-#        zeros = k_distances < 1e-6
-#        w = np.sin(k_distances)
-#        w[zeros] = 1
-#        k_distances[zeros] = 1
-#        w = w / k_distances   
-#        return w
-
-#    def _make_intramolecular_correlation_matrix(self):
-#        sites_in_species = []
-#        end = 0
-#        start_index = 0
-#        for i in [len(self._solvent["multy"]), ]:
-#            begin = end 
-#            end = end + i
-#            number_of_sites = np.sum(self._solvent["multy"][begin:end])
-#            stop_index = start_index + number_of_sites
-#            sites_indexes = list(range(start_index, stop_index))
-#            start_index = stop_index
-#            sites_in_species.append(sites_indexes)
-#        coordinates = self._solvent["xyz"]
-#        nsites = coordinates.shape[0]
-#        distances = np.zeros((nsites, nsites))
-#        for sites in sites_in_species:
-#            for pair in itertools.permutations(sites, 2):
-#                distances[pair] = np.linalg.norm(coordinates[pair[0]]
-#                                                 - coordinates[pair[1]])
-#        np.fill_diagonal(distances, 0)
-#        k = np.linalg.norm(self._k_grid, axis=0)
-#        k_distances = np.tensordot(distances, k, axes=0)
-#        w = np.exp(-2j * np.pi * k_distances)
-#        return w
-        
     def _make_r_grid(self, box):
         grids = [np.linspace(*i) for i in box]
         r_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
@@ -248,17 +193,6 @@ class Telescope:
                           self._r_grid[2, 0, 0, 1] - self._r_grid[2, 0, 0, 0]])
         return delta
 
-#    def _make_k_grid(self, box):
-#        points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
-#        grids = [np.fft.fftfreq(*i) for i in points_and_steps] 
-#        k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
-#        return k_grid
-#    def _make_k_grid(self, box):
-#        points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
-#        grids = [np.fft.fftfreq(*i) for i in points_and_steps] 
-#        grids[-1] = np.fft.rfftfreq(*points_and_steps[-1])
-#        k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
-#        return k_grid
     def _make_k_grid(self, box):
         points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
         grids = [fft.fftfreq(*i) for i in points_and_steps] 
