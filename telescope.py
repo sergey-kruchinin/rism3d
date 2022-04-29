@@ -127,14 +127,15 @@ class Telescope:
         dV = np.prod(self._calculate_r_delta())
         shift = np.expand_dims(self._r_grid[:, 0, 0, 0], axis=(1, 2, 3))
         K = np.prod(np.exp(-2j * np.pi * self._k_grid * shift), axis=0)
-        inv = np.fft.fftn(data, axes=(-3, -2, -1)) * dV * K
+        inv = np.fft.rfftn(data, axes=(-3, -2, -1)) * dV * K
         return inv
 
     def _inverse_fourier(self, data):
         dV = np.prod(self._calculate_r_delta())
         shift = np.expand_dims(self._r_grid[:, 0, 0, 0], axis=(1, 2, 3))
         K = np.prod(np.exp(2j * np.pi * self._k_grid * shift), axis=0)
-        inv = np.fft.ifftn(data * K, axes=(-3, -2, -1)) / dV
+        shape = self._r_grid[0].shape
+        inv = np.fft.irfftn(data * K, s=shape, axes=(-3, -2, -1)) / dV
         return inv
 
     def _calculate_tcf_el(self):
@@ -247,9 +248,15 @@ class Telescope:
                           self._r_grid[2, 0, 0, 1] - self._r_grid[2, 0, 0, 0]])
         return delta
 
+#    def _make_k_grid(self, box):
+#        points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
+#        grids = [np.fft.fftfreq(*i) for i in points_and_steps] 
+#        k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
+#        return k_grid
     def _make_k_grid(self, box):
         points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
         grids = [np.fft.fftfreq(*i) for i in points_and_steps] 
+        grids[-1] = np.fft.rfftfreq(*points_and_steps[-1])
         k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
         return k_grid
 
