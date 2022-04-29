@@ -1,0 +1,27 @@
+TODO:
+- rework BindingEnergy.create_box method. 
+  Make it works for non-centered solutes.
+
+- intermolecular correlation matrix is too big. 
+  Possible solutions: approximating by polinome?
+
+- intermolecular correlation matrix works only for one specie solvent.
+
+
+
+QUESTIONS FOR ChGN:
+- в формуле (6) (h_el) не нужно никакого коэффициента, типа 1/(4 pi eps eps0)?
+
+- h_el имеет ненулевую мнимую составляющую, это ок?
+
+- h_el экспонента, это остаток Фурье?. Там не нужен в показателе 2пи?
+
+- Как мы будем все это проверять?
+
+- потенциал v. Это Ван-дер-Ваальс создаваемый атомами кармана и лиганда?
+
+- S_ij это восприимчивость (S_ij = w_ij + rho_j * h_ij)?
+
+- Протеин это, по сути, просто внешнее поле, так? Тогда, если его убрать,
+  мы должны получить обычный 3D-RISM. Но уравнения (7) и (8) не переходят в 
+  3D-RISM уравнения.

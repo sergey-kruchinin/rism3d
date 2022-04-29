@@ -1,0 +1,8 @@
+# vim tmp files
+*.swp
+
+# pycache directory
+__pycache__
+
+# test files directory
+test
