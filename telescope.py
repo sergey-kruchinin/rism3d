@@ -17,9 +17,13 @@ class Telescope:
         [self._pocket_atoms, 
          self._periphery_atoms, 
          self._rest_atoms] = self._split_solute(solute, pocket, periphery)
-        self._v = self._calculate_potential()
-        self._h_el = self._calculate_tcf_el()
-        self._v_ext = self._calculate_external_potential()
+        self._v_s = self._calculate_short_potential()
+        self._h_l = self._calculate_long_tcf(self._pocket_atoms)
+        self._v_l = self._calculate_long_potential(self._pocket_atoms,
+                                                   self._h_l)
+        self._h_ext = self._calculate_long_tcf(self._rest_atoms)
+        self._v_ext = self._calculate_long_potential(self._rest_atoms,
+                                                     self._h_ext)
         
 
     def _calculate_susceptibility(self):
@@ -54,7 +58,7 @@ class Telescope:
         return chi
 
     def _solve_3drism(self):
-        gamma_0 = np.zeros_like(self._v)
+        gamma_0 = np.zeros_like(self._v_s)
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
@@ -81,14 +85,38 @@ class Telescope:
 
     def _closure(self, gamma):
         c_s = (np.exp(-self._v_ext
-                      - self._v
+                      - self._v_l
+                      - self._v_s
                       + gamma)
-               - self._h_el 
+               - self._h_ext
+               - self._h_l 
                - 1
                - gamma)
         return c_s
         
-    def _calculate_potential(self):
+#    def _calculate_potential(self):
+#        v = 0
+#        for r, e, c, in zip(self._pocket_atoms["rmin"],
+#                            self._pocket_atoms["epsilon"],    
+#                            self._pocket_atoms["xyz"]):
+#            d = np.linalg.norm(self._r_grid 
+#                               - np.expand_dims(c, axis=(1, 2, 3)),
+#                               axis=0)
+#            d[d < 1e-6] = 1e-6
+#            d = 1.0 / d
+#            r_min = r + self._solvent["rmin"]
+#            frac = np.tensordot(r_min, d, axes=0)**6
+#            eps = np.expand_dims(np.sqrt(e * self._solvent["epsilon"]),
+#                                 axis=(1, 2, 3))
+#            v += self._beta * eps * (frac**2 - 2 * frac)
+#        return v
+#
+    def _calculate_short_potential(self):
+        v = (self._calculate_lj_potential() 
+             + self._calculate_short_electrostatic_potential())
+        return v
+
+    def _calculate_lj_potential(self):
         v = 0
         for r, e, c, in zip(self._pocket_atoms["rmin"],
                             self._pocket_atoms["epsilon"],    
@@ -105,23 +133,51 @@ class Telescope:
             v += self._beta * eps * (frac**2 - 2 * frac)
         return v
 
-    def _calculate_external_potential(self):
-        """Calculate v_external * beta."""
-        v_ext = 0
-        if self._rest_atoms["xyz"].size:
-            for q, c in zip(self._rest_atoms["charge"], 
-                            self._rest_atoms["xyz"]):
+    def _calculate_short_electrostatic_potential(self):
+        v = 0
+        for q, c in zip(self._pocket_atoms["charge"], 
+                        self._pocket_atoms["xyz"]):
+            d = np.linalg.norm(self._r_grid 
+                               - np.expand_dims(c, axis=(1, 2, 3)),
+                               axis=0)
+            d[d < 1e-6] = 1e-6
+            v += q * special.erfc(d * self._options["smear"]) / d
+        v = np.tensordot(self._solvent["charge"], v, axes=0) * self._beta
+        return v
+        
+
+#    def _calculate_external_potential(self):
+#        """Calculate v_external * beta."""
+#        v_ext = 0
+#        if self._rest_atoms["xyz"].size:
+#            for q, c in zip(self._rest_atoms["charge"], 
+#                            self._rest_atoms["xyz"]):
+#                d = np.linalg.norm(self._r_grid 
+#                                   - np.expand_dims(c, axis=(1, 2, 3)),
+#                                   axis=0)
+#                d[d < 1e-6] = 1e-6
+#                v_ext += q * special.erf(d) / d
+#            v_ext = (np.tensordot(self._solvent["charge"], 
+#                                  v_ext, 
+#                                  axes=0)
+#                     * self._beta
+#                     - self._h_el)
+#        return v_ext
+#
+    def _calculate_long_potential(self, atoms, h_l):
+        """Calculate v_long * beta."""
+        v_l = 0
+        if atoms["xyz"].size:
+            for q, c in zip(atoms["charge"], atoms["xyz"]):
                 d = np.linalg.norm(self._r_grid 
                                    - np.expand_dims(c, axis=(1, 2, 3)),
                                    axis=0)
                 d[d < 1e-6] = 1e-6
-                v_ext += q * special.erf(d) / d
-            v_ext = (np.tensordot(self._solvent["charge"], 
-                                  v_ext, 
-                                  axes=0)
-                     * self._beta
-                     - self._h_el)
-        return v_ext
+                v_l += q * special.erf(d * self._options["smear"]) / d
+            v_l = (np.tensordot(self._solvent["charge"], v_l, axes=0)
+                   * self._beta
+                   - h_l)
+        return v_l
         
     def _fourier(self, data):
         dV = np.prod(self._calculate_r_delta())
@@ -138,22 +194,41 @@ class Telescope:
         inv = fft.irfftn(data * K, s=shape, axes=(-3, -2, -1), workers=-1) / dV
         return inv
 
-    def _calculate_tcf_el(self):
+#    def _calculate_tcf_el(self):
+#        sum_solute = 0
+#        if self._rest_atoms["xyz"].size:
+#            for q, c in zip(self._rest_atoms["charge"], 
+#                            self._rest_atoms["xyz"]):
+#                r_dot_k = np.tensordot(c, self._k_grid, axes=1)
+#                sum_solute += q * np.exp(1j * r_dot_k)
+#        sum_solvent = np.tensordot(self._solvent["charge"], self._chi, axes=1)
+#        k = np.linalg.norm(self._k_grid, axis=0)
+#        k[0, 0, 0] = 1e-6
+#        l = self._options["smear"]
+#        h_el_k = (-4 * np.pi * self._beta * special.erf(k * l) / k**2
+#                  * sum_solvent
+#                  * sum_solute)
+#        h_el = self._inverse_fourier(h_el_k).real
+#        return h_el
+    def _calculate_long_tcf(self, atoms):
         sum_solute = 0
-        if self._rest_atoms["xyz"].size:
-            for q, c in zip(self._rest_atoms["charge"], 
-                            self._rest_atoms["xyz"]):
+        if atoms["xyz"].size:
+            for q, c in zip(atoms["charge"], atoms["xyz"]):
                 r_dot_k = np.tensordot(c, self._k_grid, axes=1)
-                sum_solute += q * np.exp(1j * r_dot_k)
+                sum_solute += q * np.exp(-2j * np.pi * r_dot_k)
         sum_solvent = np.tensordot(self._solvent["charge"], self._chi, axes=1)
         k = np.linalg.norm(self._k_grid, axis=0)
-        k[0, 0, 0] = 1e-6
+        k[0, 0, 0] = 1
         l = self._options["smear"]
-        h_el_k = (-4 * np.pi * self._beta * special.erf(k * l) / k**2
+        h_long = (-self._beta / np.pi / k**2 * np.exp(-np.pi**2 * k**2 / l**2)
                   * sum_solvent
                   * sum_solute)
-        h_el = self._inverse_fourier(h_el_k).real
-        return h_el
+        h_extrapolate = interpolate.interp1d(k[0, 0, 1:], h_long[:, 0, 0, 1:],
+                                             kind="cubic",
+                                             fill_value="extrapolate")
+        h_long[:, 0, 0, 0] = h_extrapolate(0)
+        h_long = self._inverse_fourier(h_long)
+        return h_long
 
     def _make_intramolecular_correlation_matrix(self):
         sites_in_species = []
