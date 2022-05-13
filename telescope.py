@@ -19,11 +19,11 @@ class Telescope:
          self._rest_atoms] = self._split_solute(solute, pocket, periphery)
         self._v_s = self._calculate_short_potential()
         self._h_l = self._calculate_long_tcf(self._pocket_atoms)
-        self._v_l = self._calculate_long_potential(self._pocket_atoms,
-                                                   self._h_l)
-        self._h_ext = self._calculate_long_tcf(self._rest_atoms)
-        self._v_ext = self._calculate_long_potential(self._rest_atoms,
-                                                     self._h_ext)
+#        self._v_l = self._calculate_long_potential(self._pocket_atoms,
+#                                                   self._h_l)
+#        self._h_ext = self._calculate_long_tcf(self._rest_atoms)
+#        self._v_ext = self._calculate_long_potential(self._rest_atoms,
+#                                                     self._h_ext)
         
 
     def _calculate_susceptibility(self):
@@ -64,7 +64,7 @@ class Telescope:
         while True:
             c_s = self._closure(gamma_0)
             c_s_ft = self._fourier(c_s)
-            gamma_1_ft = self._oz(c_s_ft)
+            gamma_1_ft = self._oz(c_s_ft, self._h_l)
             gamma_1 = (self._options["mix"] 
                        * self._inverse_fourier(gamma_1_ft)
                        + (1 - self._options["mix"])
@@ -78,20 +78,13 @@ class Telescope:
                 break
         return gamma_0, c_s
 
-    def _oz(self, c_s_ft):
+    def _oz(self, c_s_ft, h_l):
         gamma_ft = np.sum(self._chi * np.expand_dims(c_s_ft, axis=0), axis=1)
-        gamma_ft -= c_s_ft
+        gamma_ft -= c_s_ft + h_l
         return gamma_ft
 
-    def _closure(self, gamma):
-        c_s = (np.exp(-self._v_ext
-                      - self._v_l
-                      - self._v_s
-                      + gamma)
-               - self._h_ext
-               - self._h_l 
-               - 1
-               - gamma)
+    def _closure(self, gamma_s):
+        c_s = (np.exp(-self._v_s + gamma_s) - 1 - gamma_s)
         return c_s
         
 #    def _calculate_potential(self):
@@ -227,7 +220,7 @@ class Telescope:
                                              kind="cubic",
                                              fill_value="extrapolate")
         h_long[:, 0, 0, 0] = h_extrapolate(0)
-        h_long = self._inverse_fourier(h_long)
+#        h_long = self._inverse_fourier(h_long)
         return h_long
 
     def _make_intramolecular_correlation_matrix(self):
