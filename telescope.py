@@ -5,6 +5,8 @@ from scipy import special
 import itertools
 import constants
 
+#import matplotlib.pyplot as plt
+
 
 class Telescope:
     def __init__(self, solute, solvent, pocket, periphery, rest, options):
@@ -72,6 +74,12 @@ class Telescope:
             e = np.mean(np.abs(gamma_1 - gamma_0))
             step += 1
             gamma_0 = gamma_1
+
+#            plt.plot(gamma_0[0, 41, 41, :], label="O")
+#            plt.plot(gamma_0[1, 41, 41, :], label="H")
+#            plt.legend()
+#            plt.show()
+
             print("{0:<6d}{1:18.8e}".format(step, e))
             if e < self._options["accuracy"] or step >= self._options["nsteps"]:
                 c_s = self._closure(gamma_0)
@@ -128,6 +136,7 @@ class Telescope:
 
     def _calculate_short_electrostatic_potential(self):
         v = 0
+        coef = self._beta / self._options["dieps"]
         for q, c in zip(self._pocket_atoms["charge"], 
                         self._pocket_atoms["xyz"]):
             d = np.linalg.norm(self._r_grid 
@@ -135,7 +144,8 @@ class Telescope:
                                axis=0)
             d[d < 1e-6] = 1e-6
             v += q * special.erfc(d * self._options["smear"]) / d
-        v = np.tensordot(self._solvent["charge"], v, axes=0) * self._beta
+#        v = np.tensordot(self._solvent["charge"], v, axes=0) * self._beta
+        v = np.tensordot(self._solvent["charge"], v, axes=0) * coef
         return v
         
 
@@ -157,7 +167,7 @@ class Telescope:
 #                     - self._h_el)
 #        return v_ext
 #
-    def _calculate_long_potential(self, atoms, h_l):
+    def _calculate_long_potential(self, atoms):
         """Calculate v_long * beta."""
         v_l = 0
         if atoms["xyz"].size:
@@ -168,8 +178,7 @@ class Telescope:
                 d[d < 1e-6] = 1e-6
                 v_l += q * special.erf(d * self._options["smear"]) / d
             v_l = (np.tensordot(self._solvent["charge"], v_l, axes=0)
-                   * self._beta
-                   - h_l)
+                   * self._beta)
         return v_l
         
     def _fourier(self, data):
@@ -204,6 +213,7 @@ class Telescope:
 #        h_el = self._inverse_fourier(h_el_k).real
 #        return h_el
     def _calculate_long_tcf(self, atoms):
+        coef = self._beta / self._options["dieps"]
         sum_solute = 0
         if atoms["xyz"].size:
             for q, c in zip(atoms["charge"], atoms["xyz"]):
@@ -213,7 +223,10 @@ class Telescope:
         k = np.linalg.norm(self._k_grid, axis=0)
         k[0, 0, 0] = 1
         l = self._options["smear"]
-        h_long = (-self._beta / np.pi / k**2 * np.exp(-np.pi**2 * k**2 / l**2)
+#        h_long = (-self._beta / np.pi / k**2 * np.exp(-np.pi**2 * k**2 / l**2)
+#                  * sum_solvent
+#                  * sum_solute)
+        h_long = (-coef / np.pi / k**2 * np.exp(-np.pi**2 * k**2 / l**2)
                   * sum_solvent
                   * sum_solute)
         h_extrapolate = interpolate.interp1d(k[0, 0, 1:], h_long[:, 0, 0, 1:],
