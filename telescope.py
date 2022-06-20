@@ -21,8 +21,7 @@ class Telescope:
          self._rest_atoms] = self._split_solute(solute, pocket, periphery)
         self._v_s = self._calculate_short_potential()
         self._h_l = self._calculate_long_tcf(self._pocket_atoms)
-#        self._v_l = self._calculate_long_potential(self._pocket_atoms,
-#                                                   self._h_l)
+        self._v_l = self._calculate_long_potential(self._pocket_atoms)
 #        self._h_ext = self._calculate_long_tcf(self._rest_atoms)
 #        self._v_ext = self._calculate_long_potential(self._rest_atoms,
 #                                                     self._h_ext)
@@ -64,9 +63,9 @@ class Telescope:
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
-            c_s = self._closure(gamma_0)
+            c_s = self._closure(gamma_0, self._h_l)
             c_s_ft = self._fourier(c_s)
-            gamma_1_ft = self._oz(c_s_ft, self._h_l)
+            gamma_1_ft = self._oz(c_s_ft)
             gamma_1 = (self._options["mix"] 
                        * self._inverse_fourier(gamma_1_ft)
                        + (1 - self._options["mix"])
@@ -82,17 +81,17 @@ class Telescope:
 
             print("{0:<6d}{1:18.8e}".format(step, e))
             if e < self._options["accuracy"] or step >= self._options["nsteps"]:
-                c_s = self._closure(gamma_0)
+                c_s = self._closure(gamma_0, self._h_l)
                 break
         return gamma_0, c_s
 
-    def _oz(self, c_s_ft, h_l):
+    def _oz(self, c_s_ft):
         gamma_ft = np.sum(self._chi * np.expand_dims(c_s_ft, axis=0), axis=1)
-        gamma_ft -= c_s_ft + h_l
+        gamma_ft = gamma_ft - c_s_ft
         return gamma_ft
 
-    def _closure(self, gamma_s):
-        c_s = (np.exp(-self._v_s + gamma_s) - 1 - gamma_s)
+    def _closure(self, gamma_s, h_l):
+        c_s = (np.exp(-self._v_s + h_l + gamma_s) - 1 - gamma_s - h_l)
         return c_s
         
 #    def _calculate_potential(self):
@@ -170,6 +169,7 @@ class Telescope:
     def _calculate_long_potential(self, atoms):
         """Calculate v_long * beta."""
         v_l = 0
+        coef = self._beta / self._options["dieps"]
         if atoms["xyz"].size:
             for q, c in zip(atoms["charge"], atoms["xyz"]):
                 d = np.linalg.norm(self._r_grid 
@@ -178,7 +178,7 @@ class Telescope:
                 d[d < 1e-6] = 1e-6
                 v_l += q * special.erf(d * self._options["smear"]) / d
             v_l = (np.tensordot(self._solvent["charge"], v_l, axes=0)
-                   * self._beta)
+                   * coef)
         return v_l
         
     def _fourier(self, data):
@@ -219,7 +219,9 @@ class Telescope:
             for q, c in zip(atoms["charge"], atoms["xyz"]):
                 r_dot_k = np.tensordot(c, self._k_grid, axes=1)
                 sum_solute += q * np.exp(-2j * np.pi * r_dot_k)
-        sum_solvent = np.tensordot(self._solvent["charge"], self._chi, axes=1)
+        sum_solvent = np.tensordot(self._chi, 
+                                   self._solvent["charge"], 
+                                   axes=([1, 0]))
         k = np.linalg.norm(self._k_grid, axis=0)
         k[0, 0, 0] = 1
         l = self._options["smear"]
@@ -233,8 +235,24 @@ class Telescope:
                                              kind="cubic",
                                              fill_value="extrapolate")
         h_long[:, 0, 0, 0] = h_extrapolate(0)
-#        h_long = self._inverse_fourier(h_long)
+        h_long = self._inverse_fourier(h_long)
         return h_long
+
+    def _extrapolate_long_tcf(self, atoms):
+        sum_solute = 0
+        coef = self._beta / self._options["dieps"]
+        if atoms["charge"].size:
+            sum_solute = np.sum(atoms["charge"])
+        sum_solvent = np.tensordot(self._solvent["charge"], 
+                                   self._solvent["chi"][:, :, 1:],
+                                   axes=1)
+        k = self._solvent["k_grid"][1:]
+        h_l = -coef / np.pi / k**2 * sum_solute * sum_solvent
+        h_extrapolate = interpolate.interp1d(k, h_l, 
+                                             kind="cubic", 
+                                             fill_value="extrapolate")
+        h_l_0 = h_extrapolate(0)
+        return h_l_0
 
     def _make_intramolecular_correlation_matrix(self):
         sites_in_species = []
