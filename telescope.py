@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from scipy import fft
 from scipy import interpolate
@@ -8,9 +9,9 @@ import constants
 
 class Telescope:
     def __init__(self, solute, solvent, pocket, periphery, rest, options):
-        self._options = options
+        self._options = copy.deepcopy(options)
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
-        self._solvent = solvent
+        self._solvent = copy.deepcopy(solvent)
         self._r_grid = self._make_r_grid(pocket)
         self._k_grid = self._make_k_grid(pocket)
         self._chi = self._calculate_susceptibility()
