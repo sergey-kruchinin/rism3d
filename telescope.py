@@ -11,6 +11,8 @@ class Telescope:
     def __init__(self, solute, solvent, pocket, periphery, rest, options):
         self._options = copy.deepcopy(options)
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
+        closures = {"hnc": self._hnc, "kh": self._kh}
+        self._closure = closures[self._options["closure"]]
         self._solvent = copy.deepcopy(solvent)
         self._r_grid = self._make_r_grid(pocket)
         self._k_grid = self._make_k_grid(pocket)
@@ -21,6 +23,8 @@ class Telescope:
         self._v_s = self._calculate_short_potential()
         self._h_l = self._calculate_long_tcf(self._pocket_atoms)
         self._v_l = self._calculate_long_potential(self._pocket_atoms)
+        self._c_s = np.zeros_like(self._v_s)
+        self._gamma = np.zeros_like(self._v_s)
         
 
     def _calculate_susceptibility(self):
@@ -61,8 +65,16 @@ class Telescope:
         gamma_ft = gamma_ft - c_s_ft
         return gamma_ft
 
-    def _closure(self, gamma_s, h_l):
+    def _hnc(self, gamma_s, h_l):
         c_s = (np.exp(-self._v_s + h_l + gamma_s) - 1 - gamma_s - h_l)
+        return c_s
+
+    def _kh(self, gamma_s, h_l):
+        exponent = -self._v_s + h_l + gamma_s
+        if exponent > 0:
+            c_s = np.exp(exponent) - 1 - gamma_s - h_l
+        else:
+            c_s = exponent - gamma_s
         return c_s
         
     def _calculate_short_potential(self):
