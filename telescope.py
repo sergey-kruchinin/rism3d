@@ -71,13 +71,13 @@ class Telescope:
                      - self._gamma 
                      - self._h_l)
 
-    def _kh(self, gamma_s, h_l):
-        exponent = -self._v_s + h_l + gamma_s
-        if exponent > 0:
-            c_s = np.exp(exponent) - 1 - gamma_s - h_l
-        else:
-            c_s = exponent - gamma_s
-        return c_s
+    def _kh(self):
+        e = -self._v_s + self._h_l + self._gamma
+        self._c_s[e > 0] = -self._v_s[e > 0]
+        self._c_s[e <= 0] = (np.exp(e[e <= 0]) 
+                            - 1 
+                            - self._gamma[e <= 0] 
+                            - self._h_l[e <= 0]) 
         
     def _calculate_short_potential(self):
         v = (self._calculate_lj_potential() 
