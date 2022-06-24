@@ -40,34 +40,36 @@ class Telescope:
         return chi 
 
     def _solve_3drism(self):
-        gamma_0 = np.zeros_like(self._v_s)
+        mix = self._options["mix"]
+        gamma_old = self._gamma.copy()
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
-            c_s = self._closure(gamma_0, self._h_l)
-            c_s_ft = self._fourier(c_s)
-            gamma_1_ft = self._oz(c_s_ft)
-            gamma_1 = (self._options["mix"] 
-                       * self._inverse_fourier(gamma_1_ft)
-                       + (1 - self._options["mix"])
-                       * gamma_0)
-            e = np.mean(np.abs(gamma_1 - gamma_0))
+            self._closure()
+            self._oz()
+            self._gamma = mix * self._gamma + (1 - mix) * gamma_old
+            e = np.mean(np.abs(self._gamma - gamma_old))
             step += 1
-            gamma_0 = gamma_1
+            gamma_old = self._gamma.copy()
             print("{0:<6d}{1:18.8e}".format(step, e))
             if e < self._options["accuracy"] or step >= self._options["nsteps"]:
-                c_s = self._closure(gamma_0, self._h_l)
+                self._closure()
                 break
-        return gamma_0, c_s
 
-    def _oz(self, c_s_ft):
-        gamma_ft = np.sum(self._chi * np.expand_dims(c_s_ft, axis=0), axis=1)
-        gamma_ft = gamma_ft - c_s_ft
-        return gamma_ft
+    def _oz(self):
+        c_s_ft = self._fourier(self._c_s)
+        gamma_ft = np.sum(self._chi 
+                          * np.expand_dims(c_s_ft, axis=0),
+                          axis=1) - c_s_ft
+        self._gamma = self._inverse_fourier(gamma_ft)
 
-    def _hnc(self, gamma_s, h_l):
-        c_s = (np.exp(-self._v_s + h_l + gamma_s) - 1 - gamma_s - h_l)
-        return c_s
+    def _hnc(self):
+        self._c_s = (np.exp(-self._v_s 
+                            + self._h_l 
+                            + self._gamma) 
+                     - 1 
+                     - self._gamma 
+                     - self._h_l)
 
     def _kh(self, gamma_s, h_l):
         exponent = -self._v_s + h_l + gamma_s
