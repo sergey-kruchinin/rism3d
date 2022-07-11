@@ -117,3 +117,11 @@ class BindingEnergy:
         borders = (npoints - 1) * delta / 2
         box = [(-b, b, p) for b, p in zip(borders, npoints)]
         return box
+
+    def create_box_from_dx(dx):
+        spacing = np.diagonal(dx.delta)
+        min_border = dx.origin
+        points = dx.size
+        max_border = (points - 1) * spacing + min_border
+        box = [(l, h, p) for l, h, p in zip(min_border, max_border, points)]
+        return box
