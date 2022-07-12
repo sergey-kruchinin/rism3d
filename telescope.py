@@ -27,19 +27,7 @@ class Telescope:
         self._gamma = np.zeros_like(self._v_s)
         
 
-    def _calculate_susceptibility(self):
-        k_1d = (self._solvent["k_grid"]) / 2 / np.pi
-        npoints = len(self._solvent["k_grid"])
-        chi_1d = self._solvent["chi"]
-        k_3d = np.linalg.norm(self._k_grid, axis=0)
-        f = interpolate.interp1d(k_1d, 
-                                 chi_1d, 
-                                 kind="cubic", 
-                                 fill_value="extrapolate")
-        chi = f(k_3d)
-        return chi 
-
-    def _solve_3drism(self):
+    def solve(self):
         mix = self._options["mix"]
         gamma_old = self._gamma.copy()
         step = 0
@@ -55,6 +43,10 @@ class Telescope:
             if e < self._options["accuracy"] or step >= self._options["nsteps"]:
                 self._closure()
                 break
+
+    def h(self):
+        h = self._c_s + self._gamma + self._h_l
+        return h
 
     def _oz(self):
         c_s_ft = self._fourier(self._c_s)
@@ -79,6 +71,18 @@ class Telescope:
                             - self._gamma[e <= 0] 
                             - self._h_l[e <= 0]) 
         
+    def _calculate_susceptibility(self):
+        k_1d = (self._solvent["k_grid"]) / 2 / np.pi
+        npoints = len(self._solvent["k_grid"])
+        chi_1d = self._solvent["chi"]
+        k_3d = np.linalg.norm(self._k_grid, axis=0)
+        f = interpolate.interp1d(k_1d, 
+                                 chi_1d, 
+                                 kind="cubic", 
+                                 fill_value="extrapolate")
+        chi = f(k_3d)
+        return chi 
+
     def _calculate_short_potential(self):
         v = (self._calculate_lj_potential() 
              + self._calculate_short_electrostatic_potential())
