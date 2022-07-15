@@ -48,6 +48,10 @@ class Telescope:
         h = self._c_s + self._gamma + self._h_l
         return h
 
+    def c(self):
+        c = self._c_s - self._v_l
+        return c
+
     def _oz(self):
         c_s_ft = self._fourier(self._c_s)
         gamma_ft = np.sum(self._chi 
