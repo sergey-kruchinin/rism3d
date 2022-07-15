@@ -35,8 +35,8 @@ class Telescope:
         while True:
             self._closure()
             self._oz()
-            self._gamma = mix * self._gamma + (1 - mix) * gamma_old
             e = np.mean(np.abs(self._gamma - gamma_old))
+            self._gamma = mix * self._gamma + (1 - mix) * gamma_old
             step += 1
             gamma_old = self._gamma.copy()
             print("{0:<6d}{1:18.8e}".format(step, e))
