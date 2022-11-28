@@ -21,8 +21,10 @@ class Telescope:
          self._periphery_atoms, 
          self._rest_atoms] = self._split_solute(solute, pocket, periphery)
         self._v_s = self._calculate_short_potential()
-        self._h_l = self._calculate_long_tcf(self._pocket_atoms)
-        self._v_l = self._calculate_long_potential(self._pocket_atoms)
+        self._h_l = (self._calculate_long_tcf(self._pocket_atoms)
+                     + self._calculate_long_tcf(self._rest_atoms))
+        self._v_l = (self._calculate_long_potential(self._pocket_atoms)
+                     + self._calculate_long_potential(self._rest_atoms))
         self._c_s = np.zeros_like(self._v_s)
         self._gamma = np.zeros_like(self._v_s)
         
