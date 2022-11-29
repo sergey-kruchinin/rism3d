@@ -7,7 +7,7 @@ import itertools
 import constants
 
 
-class Telescope:
+class Rism3D:
     def __init__(self, solute, solvent, pocket, periphery, rest, options):
         self._options = copy.deepcopy(options)
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
