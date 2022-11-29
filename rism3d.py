@@ -8,23 +8,20 @@ import constants
 
 
 class Rism3D:
-    def __init__(self, solute, solvent, pocket, periphery, rest, options):
+    def __init__(self, solute, solvent, box, options):
         self._options = copy.deepcopy(options)
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
         closures = {"hnc": self._hnc, "kh": self._kh}
         self._closure = closures[self._options["closure"]]
         self._solvent = copy.deepcopy(solvent)
-        self._r_grid = self._make_r_grid(pocket)
-        self._k_grid = self._make_k_grid(pocket)
+        self._box = copy.deepcopy(box)
+        self._r_grid = self._make_r_grid()
+        self._k_grid = self._make_k_grid()
         self._chi = self._calculate_susceptibility()
-        [self._pocket_atoms, 
-         self._periphery_atoms, 
-         self._rest_atoms] = self._split_solute(solute, pocket, periphery)
+        self._solute = copy.deepcopy(solute)
         self._v_s = self._calculate_short_potential()
-        self._h_l = (self._calculate_long_tcf(self._pocket_atoms)
-                     + self._calculate_long_tcf(self._rest_atoms))
-        self._v_l = (self._calculate_long_potential(self._pocket_atoms)
-                     + self._calculate_long_potential(self._rest_atoms))
+        self._h_l = self._calculate_long_tcf()
+        self._v_l = self._calculate_long_potential()
         self._c_s = np.zeros_like(self._v_s)
         self._gamma = np.zeros_like(self._v_s)
         
@@ -96,9 +93,9 @@ class Rism3D:
 
     def _calculate_lj_potential(self):
         v = 0
-        for r, e, c, in zip(self._pocket_atoms["rmin"],
-                            self._pocket_atoms["epsilon"],    
-                            self._pocket_atoms["xyz"]):
+        for r, e, c, in zip(self._solute["rmin"],
+                            self._solute["epsilon"],    
+                            self._solute["xyz"]):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
@@ -114,8 +111,8 @@ class Rism3D:
     def _calculate_short_electrostatic_potential(self):
         v = 0
         dieps = self._options["dieps"]
-        for q, c in zip(self._pocket_atoms["charge"], 
-                        self._pocket_atoms["xyz"]):
+        for q, c in zip(self._solute["charge"], 
+                        self._solute["xyz"]):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
@@ -126,21 +123,20 @@ class Rism3D:
                          axes=0) * self._beta / dieps
         return v
 
-    def _calculate_long_potential(self, atoms):
+    def _calculate_long_potential(self):
         """Calculate v_long * beta."""
         v_l = 0
         coef = self._beta / self._options["dieps"]
         dieps = self._options["dieps"]
-        if atoms["xyz"].size:
-            for q, c in zip(atoms["charge"], atoms["xyz"]):
-                d = np.linalg.norm(self._r_grid 
-                                   - np.expand_dims(c, axis=(1, 2, 3)),
-                                   axis=0)
-                d[d < 1e-6] = 1e-6
-                v_l += q * special.erf(d * self._options["smear"]) / d
-            v_l = np.tensordot(self._solvent["charge"], 
-                               v_l, 
-                               axes=0) * self._beta / dieps
+        for q, c in zip(self._solute["charge"], self._solute["xyz"]):
+            d = np.linalg.norm(self._r_grid 
+                               - np.expand_dims(c, axis=(1, 2, 3)),
+                               axis=0)
+            d[d < 1e-6] = 1e-6
+            v_l += q * special.erf(d * self._options["smear"]) / d
+        v_l = np.tensordot(self._solvent["charge"], 
+                           v_l, 
+                           axes=0) * self._beta / dieps
         return v_l
         
     def _fourier(self, data):
@@ -158,13 +154,12 @@ class Rism3D:
         inv = fft.irfftn(data * K, s=shape, axes=(-3, -2, -1), workers=-1) / dV
         return inv
 
-    def _calculate_long_tcf(self, atoms):
+    def _calculate_long_tcf(self):
         dieps = self._options["dieps"]
         sum_solute = 0
-        if atoms["xyz"].size:
-            for q, c in zip(atoms["charge"], atoms["xyz"]):
-                r_dot_k = np.tensordot(c, self._k_grid, axes=1)
-                sum_solute += q * np.exp(-2j * np.pi * r_dot_k)
+        for q, c in zip(self._solute["charge"], self._solute["xyz"]):
+            r_dot_k = np.tensordot(c, self._k_grid, axes=1)
+            sum_solute += q * np.exp(-2j * np.pi * r_dot_k)
         sum_solvent = np.tensordot(self._chi, 
                                    self._solvent["charge"], 
                                    axes=([1, 0]))
@@ -182,11 +177,10 @@ class Rism3D:
         h_long = self._inverse_fourier(h_long)
         return h_long
 
-    def _extrapolate_long_tcf(self, atoms):
+    def _extrapolate_long_tcf(self):
         sum_solute = 0
         dieps = self._options["dieps"]
-        if atoms["charge"].size:
-            sum_solute = np.sum(atoms["charge"])
+        sum_solute = np.sum(self._solute["charge"])
         sum_solvent = np.tensordot(self._solvent["charge"], 
                                    self._solvent["chi"][:, :, 1:],
                                    axes=1)
@@ -225,8 +219,8 @@ class Rism3D:
         w = np.sinc(k_distances)
         return w
 
-    def _make_r_grid(self, box):
-        grids = [np.linspace(*i) for i in box]
+    def _make_r_grid(self):
+        grids = [np.linspace(*i) for i in self._box]
         r_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
         return r_grid
 
@@ -236,38 +230,9 @@ class Rism3D:
                           self._r_grid[2, 0, 0, 1] - self._r_grid[2, 0, 0, 0]])
         return delta
 
-    def _make_k_grid(self, box):
-        points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in box]
+    def _make_k_grid(self):
+        points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in self._box]
         grids = [fft.fftfreq(*i) for i in points_and_steps] 
         grids[-1] = fft.rfftfreq(*points_and_steps[-1])
         k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
         return k_grid
-
-    def _split_solute(self, solute, pocket, periphery):
-        keys_list = solute.keys()
-        pocket_atoms = {k: [] for k in keys_list}
-        periphery_atoms = {k: [] for k in keys_list}
-        rest_atoms = {k: [] for k in keys_list}
-        pocket_l_borders = np.array([i[0] for i in pocket])
-        pocket_h_borders = np.array([i[1] for i in pocket])
-        periphery_l_borders = np.array([i[0] for i in periphery])
-        periphery_h_borders = np.array([i[1] for i in periphery])
-        for i, c in enumerate(solute["xyz"]):
-            if (np.all(c >= pocket_l_borders) 
-                and np.all(c <= pocket_h_borders)):    
-                for k in keys_list:
-                    pocket_atoms[k].append(solute[k][i])
-                continue
-            elif (np.all(c >= periphery_l_borders) 
-                  and np.all(c <= periphery_h_borders)):
-                for k in keys_list:
-                    periphery_atoms[k].append(solute[k][i])
-                continue
-            else:
-                for k in keys_list:
-                    rest_atoms[k].append(solute[k][i])
-        for k in keys_list:
-            pocket_atoms[k] = np.array(pocket_atoms[k])
-            periphery_atoms[k] = np.array(periphery_atoms[k])
-            rest_atoms[k] = np.array(rest_atoms[k])
-        return pocket_atoms, periphery_atoms, rest_atoms
