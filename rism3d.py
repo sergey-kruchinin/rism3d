@@ -5,6 +5,7 @@ from scipy import interpolate
 from scipy import special
 import itertools
 import constants
+import mdiis
 
 
 class Rism3D:
@@ -13,6 +14,8 @@ class Rism3D:
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
         closures = {"hnc": self._hnc, "kh": self._kh}
         self._closure = closures[self._options["closure"]]
+        solvers = {"picard": self._picard_solver, "mdiis": self._mdiis_solver}
+        self._solver = solvers[self._options["solver"]]
         self._solvent = copy.deepcopy(solvent)
         self._box = copy.deepcopy(box)
         self._r_grid = self._make_r_grid()
@@ -27,6 +30,9 @@ class Rism3D:
         
 
     def solve(self):
+        self._solver()
+
+    def _picard_solver(self):
         mix = self._options["mix"]
         gamma_old = self._gamma.copy()
         step = 0
@@ -34,12 +40,32 @@ class Rism3D:
         while True:
             self._closure()
             self._oz()
-#            e = np.mean(np.abs(self._gamma - gamma_old))
             e = np.max(np.abs(self._gamma - gamma_old))
             self._gamma = mix * self._gamma + (1 - mix) * gamma_old
             step += 1
             gamma_old = self._gamma.copy()
             print("{0:<6d}{1:18.8e}".format(step, e))
+            if e < self._options["accuracy"] or step >= self._options["nsteps"]:
+                self._closure()
+                break
+                
+    def _mdiis_solver(self):
+        m = mdiis.MDIIS(self._options["mdiis_vectors"],
+                        self._options["mdiis_mix"],
+                        self._options["mdiis_max_residue"]
+                        )
+        gamma_old = self._gamma.copy()
+        step = 0
+        print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
+        while True:
+            self._closure()
+            self._oz()
+            residual = self._gamma - gamma_old
+            self._gamma = m.optimize(gamma_old, residual)
+            e = np.max(np.abs(residual))
+            step += 1
+            gamma_old = self._gamma.copy()
+            print(f"{step:<6d}{e:18.8e}{m.size():>7d}")
             if e < self._options["accuracy"] or step >= self._options["nsteps"]:
                 self._closure()
                 break

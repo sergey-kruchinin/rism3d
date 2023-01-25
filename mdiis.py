@@ -52,8 +52,8 @@ class MDIIS:
             v_min = self._minimal_vector()
             self._flush()
             return v_min
-        v_new = (np.dot(coefficients[:-1], self._vectors) 
-                 + self._mix * np.dot(coefficients[:-1], self._residuals))
+        v_new = (np.tensordot(coefficients[:-1], self._vectors, axes=1) 
+                 + self._mix * np.tensordot(coefficients[:-1], self._residuals, axes=1))
         return v_new
 
     def size(self):
