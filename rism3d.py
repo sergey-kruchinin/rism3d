@@ -6,6 +6,7 @@ from scipy import special
 import itertools
 import constants
 import mdiis
+import exceptions
 
 
 class Rism3D:
@@ -28,7 +29,6 @@ class Rism3D:
         self._c_s = np.zeros_like(self._v_s)
         self._gamma = np.zeros_like(self._v_s)
         
-
     def solve(self):
         self._solver()
 
@@ -45,7 +45,11 @@ class Rism3D:
             step += 1
             gamma_old = self._gamma.copy()
             print("{0:<6d}{1:18.8e}".format(step, e))
-            if e < self._options["accuracy"] or step >= self._options["nsteps"]:
+            if step >= self._options["nsteps"]:
+                raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
+            if np.isnan(e) or np.isinf(e):
+                raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
+            if e < self._options["accuracy"]:
                 self._closure()
                 break
                 
@@ -66,7 +70,11 @@ class Rism3D:
             step += 1
             gamma_old = self._gamma.copy()
             print(f"{step:<6d}{e:18.8e}{m.size():>7d}")
-            if e < self._options["accuracy"] or step >= self._options["nsteps"]:
+            if step >= self._options["nsteps"]:
+                raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
+            if np.isnan(e) or np.isinf(e):
+                raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
+            if e < self._options["accuracy"]:
                 self._closure()
                 break
 
