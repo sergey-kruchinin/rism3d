@@ -4,165 +4,164 @@ import amberParm
 import constants
 
 
-class Utils:
-    def read_crd(crd_file):
-        """
-        Read .crd file from AmberTools
-        """
-        crd = []
-        with open(crd_file, "r") as f:
-            f.readline()
-            f.readline()
-            for line in f:
-                data = np.fromstring(line, sep=" ")
-                crd.append(data)
-        crd = np.hstack(crd).reshape((-1, 3))
-        return crd
+def read_crd(crd_file):
+    """
+    Read .crd file from AmberTools
+    """
+    crd = []
+    with open(crd_file, "r") as f:
+        f.readline()
+        f.readline()
+        for line in f:
+            data = np.fromstring(line, sep=" ")
+            crd.append(data)
+    crd = np.hstack(crd).reshape((-1, 3))
+    return crd
+    
+def read_top(top_file):
+    top = amberParm.amberParm(top_file)
+    charges = top["CHARGE"]
+    A = top["LENNARD_JONES_ACOEF"][
+            top["NONBONDED_PARM_INDEX"][
+            np.max(top["ATOM_TYPE_INDEX"])
+            * (top["ATOM_TYPE_INDEX"] - 1) 
+            + top["ATOM_TYPE_INDEX"] - 1] - 1]
+    B = top["LENNARD_JONES_BCOEF"][
+            top["NONBONDED_PARM_INDEX"][
+            np.max(top["ATOM_TYPE_INDEX"])
+            * (top["ATOM_TYPE_INDEX"] - 1)
+            + top["ATOM_TYPE_INDEX"] - 1] - 1]
+    A_is_zero = A < 1e-6
+    B_is_zero = B < 1e-6
+    if np.bitwise_xor(A_is_zero, B_is_zero).any():
+        raise ValueError("Some solute atoms have only repulsion ", 
+                         "or attraction terms of Lennard-Jones ", 
+                         "potential. Processing of this",
+                         "situation is not implemented yet.")
+    epsilon = np.zeros(A.shape)
+    rmin2 = np.zeros(A.shape)
+    A_and_B_not_zero = np.invert(A_is_zero) & np.invert(B_is_zero)
+    epsilon[A_and_B_not_zero] = (B[A_and_B_not_zero]**2 
+                                 / 4 
+                                 / A[A_and_B_not_zero])
+    rmin2[A_and_B_not_zero] = (2 * A[A_and_B_not_zero] 
+                               / B[A_and_B_not_zero])**(1.0/6) / 2
+    parameters = {"charge": charges, 
+                  "rmin": rmin2,
+                  "epsilon": epsilon
+                 }
+    return parameters
+
+def read_solute(crd_file, top_file):
+    solute = BindingEnergy.read_top(top_file)
+    solute["xyz"] = BindingEnergy.read_crd(crd_file)
+    return solute
+
+def read_solvent(xvv_file):
+    xvv = amberParm.amberParm(xvv_file)
+    data = {}
+    kB_T = constants.k_Boltzmann * xvv["THERMO"][0]
+    data["charge"] = xvv["QV"] * np.sqrt(kB_T)
+    data["rmin"] = xvv["RMIN2V"]
+    data["epsilon"] = xvv["EPSV"] * kB_T
+    data["density"] = xvv["RHOV"]
+    data["multy"] = xvv["MTV"]
+    data["xyz"] = xvv["COORD"].reshape((-1, 3))
+    npoints = xvv["POINTERS"][0]
+    nsites = xvv["POINTERS"][1]
+    data["chi"] = xvv["XVV"].reshape((nsites, nsites, npoints), order="C")
+    r_delta = xvv["THERMO"][4]
+    k_delta = np.pi / (npoints + 1) / r_delta
+    data["k_grid"] = np.arange(npoints) * k_delta
+    return data
+    
+def read_mdl(mdl_file, molarity):
+    def expand(section, multy):
+        new = []
+        for i, m in zip(section, multy):
+            new.append(list(itertools.repeat(i, m)))
+        new = np.hstack(new)
+        return new
         
-    def read_top(top_file):
-        top = amberParm.amberParm(top_file)
-        charges = top["CHARGE"]
-        A = top["LENNARD_JONES_ACOEF"][
-                top["NONBONDED_PARM_INDEX"][
-                np.max(top["ATOM_TYPE_INDEX"])
-                * (top["ATOM_TYPE_INDEX"] - 1) 
-                + top["ATOM_TYPE_INDEX"] - 1] - 1]
-        B = top["LENNARD_JONES_BCOEF"][
-                top["NONBONDED_PARM_INDEX"][
-                np.max(top["ATOM_TYPE_INDEX"])
-                * (top["ATOM_TYPE_INDEX"] - 1)
-                + top["ATOM_TYPE_INDEX"] - 1] - 1]
-        A_is_zero = A < 1e-6
-        B_is_zero = B < 1e-6
-        if np.bitwise_xor(A_is_zero, B_is_zero).any():
-            raise ValueError("Some solute atoms have only repulsion ", 
-                             "or attraction terms of Lennard-Jones ", 
-                             "potential. Processing of this",
-                             "situation is not implemented yet.")
-        epsilon = np.zeros(A.shape)
-        rmin2 = np.zeros(A.shape)
-        A_and_B_not_zero = np.invert(A_is_zero) & np.invert(B_is_zero)
-        epsilon[A_and_B_not_zero] = (B[A_and_B_not_zero]**2 
-                                     / 4 
-                                     / A[A_and_B_not_zero])
-        rmin2[A_and_B_not_zero] = (2 * A[A_and_B_not_zero] 
-                                   / B[A_and_B_not_zero])**(1.0/6) / 2
-        parameters = {"charge": charges, 
-                      "rmin": rmin2,
-                      "epsilon": epsilon
-                     }
-        return parameters
+    mdl = amberParm.amberParm(mdl_file)
+    multy = mdl["MULTI"]
+    xyz = mdl["COORD"].reshape((-1, 3))
+    charges = expand(mdl["CHG"], multy)
+    rmin = expand(mdl["LJSIGMA"], multy)
+    epsilon = expand(mdl["LJEPSILON"], multy)
+    density = np.full_like(rmin, molarity * constants.N_Avogadro * 1e-27)
+    data = {"xyz": xyz,
+            "charge": charges, 
+            "rmin": rmin, 
+            "epsilon": epsilon,
+            "multy": np.ones_like(rmin, dtype="int"),
+            "density": density,
+           }
+    return data
 
-    def read_solute(crd_file, top_file):
-        solute = BindingEnergy.read_top(top_file)
-        solute["xyz"] = BindingEnergy.read_crd(crd_file)
-        return solute
+def get_center(crd):
+    center = (np.max(crd, axis=0) + np.min(crd, axis=0)) / 2
+    return center
 
-    def read_solvent(xvv_file):
-        xvv = amberParm.amberParm(xvv_file)
-        data = {}
-        kB_T = constants.k_Boltzmann * xvv["THERMO"][0]
-        data["charge"] = xvv["QV"] * np.sqrt(kB_T)
-        data["rmin"] = xvv["RMIN2V"]
-        data["epsilon"] = xvv["EPSV"] * kB_T
-        data["density"] = xvv["RHOV"]
-        data["multy"] = xvv["MTV"]
-        data["xyz"] = xvv["COORD"].reshape((-1, 3))
-        npoints = xvv["POINTERS"][0]
-        nsites = xvv["POINTERS"][1]
-        data["chi"] = xvv["XVV"].reshape((nsites, nsites, npoints), order="C")
-        r_delta = xvv["THERMO"][4]
-        k_delta = np.pi / (npoints + 1) / r_delta
-        data["k_grid"] = np.arange(npoints) * k_delta
-        return data
-        
-    def read_mdl(mdl_file, molarity):
-        def expand(section, multy):
-            new = []
-            for i, m in zip(section, multy):
-                new.append(list(itertools.repeat(i, m)))
-            new = np.hstack(new)
-            return new
-            
-        mdl = amberParm.amberParm(mdl_file)
-        multy = mdl["MULTI"]
-        xyz = mdl["COORD"].reshape((-1, 3))
-        charges = expand(mdl["CHG"], multy)
-        rmin = expand(mdl["LJSIGMA"], multy)
-        epsilon = expand(mdl["LJEPSILON"], multy)
-        density = np.full_like(rmin, molarity * constants.N_Avogadro * 1e-27)
-        data = {"xyz": xyz,
-                "charge": charges, 
-                "rmin": rmin, 
-                "epsilon": epsilon,
-                "multy": np.ones_like(rmin, dtype="int"),
-                "density": density,
-               }
-        return data
+def shift(crd, shift_vector):
+    new_crd = crd - shift_vector
+    return new_crd
 
-    def get_center(crd):
-        center = (np.max(crd, axis=0) + np.min(crd, axis=0)) / 2
-        return center
+def create_box(crd, delta, shell):
+    """Create box around solute.
 
-    def shift(crd, shift_vector):
-        new_crd = crd - shift_vector
-        return new_crd
+    Works correctly for centered solutes only.
+    """
+    spacing = np.max(crd, axis=0) - np.min(crd, axis=0) + 2 * shell
+    npoints = np.ceil(spacing / delta).astype(int) + 1
+    borders = (npoints - 1) * delta / 2
+    box = [(-b, b, p) for b, p in zip(borders, npoints)]
+    return box
 
-    def create_box(crd, delta, shell):
-        """Create box around solute.
+def create_box_from_dx(dx):
+    spacing = np.diagonal(dx.delta)
+    min_border = dx.origin
+    points = dx.size
+    max_border = (points - 1) * spacing + min_border
+    box = [(l, h, p) for l, h, p in zip(min_border, max_border, points)]
+    return box
 
-        Works correctly for centered solutes only.
-        """
-        spacing = np.max(crd, axis=0) - np.min(crd, axis=0) + 2 * shell
-        npoints = np.ceil(spacing / delta).astype(int) + 1
-        borders = (npoints - 1) * delta / 2
-        box = [(-b, b, p) for b, p in zip(borders, npoints)]
-        return box
+def select_pocket_region(r_grid, pocket):
+    """Define grid points belonging to pocket region.
 
-    def create_box_from_dx(dx):
-        spacing = np.diagonal(dx.delta)
-        min_border = dx.origin
-        points = dx.size
-        max_border = (points - 1) * spacing + min_border
-        box = [(l, h, p) for l, h, p in zip(min_border, max_border, points)]
-        return box
+    Currently, only box pockets are supported.
+    """
+    selection = np.ones_like(r_grid[0], dtype=bool)
+    for p, g in zip(pocket, r_grid):
+        selection = np.logical_and(selection, 
+                                   np.logical_and(g > p[0], g < p[1]))
+    return selection
 
-    def select_pocket_region(r_grid, pocket):
-        """Define grid points belonging to pocket region.
-
-        Currently, only box pockets are supported.
-        """
-        selection = np.ones_like(r_grid[0], dtype=bool)
-        for p, g in zip(pocket, r_grid):
-            selection = np.logical_and(selection, 
-                                       np.logical_and(g > p[0], g < p[1]))
-        return selection
-
-    def _split_solute(self, solute, pocket, periphery):
-        keys_list = solute.keys()
-        pocket_atoms = {k: [] for k in keys_list}
-        periphery_atoms = {k: [] for k in keys_list}
-        rest_atoms = {k: [] for k in keys_list}
-        pocket_l_borders = np.array([i[0] for i in pocket])
-        pocket_h_borders = np.array([i[1] for i in pocket])
-        periphery_l_borders = np.array([i[0] for i in periphery])
-        periphery_h_borders = np.array([i[1] for i in periphery])
-        for i, c in enumerate(solute["xyz"]):
-            if (np.all(c >= pocket_l_borders) 
-                and np.all(c <= pocket_h_borders)):    
-                for k in keys_list:
-                    pocket_atoms[k].append(solute[k][i])
-                continue
-            elif (np.all(c >= periphery_l_borders) 
-                  and np.all(c <= periphery_h_borders)):
-                for k in keys_list:
-                    periphery_atoms[k].append(solute[k][i])
-                continue
-            else:
-                for k in keys_list:
-                    rest_atoms[k].append(solute[k][i])
-        for k in keys_list:
-            pocket_atoms[k] = np.array(pocket_atoms[k])
-            periphery_atoms[k] = np.array(periphery_atoms[k])
-            rest_atoms[k] = np.array(rest_atoms[k])
-        return pocket_atoms, periphery_atoms, rest_atoms
+def _split_solute(self, solute, pocket, periphery):
+    keys_list = solute.keys()
+    pocket_atoms = {k: [] for k in keys_list}
+    periphery_atoms = {k: [] for k in keys_list}
+    rest_atoms = {k: [] for k in keys_list}
+    pocket_l_borders = np.array([i[0] for i in pocket])
+    pocket_h_borders = np.array([i[1] for i in pocket])
+    periphery_l_borders = np.array([i[0] for i in periphery])
+    periphery_h_borders = np.array([i[1] for i in periphery])
+    for i, c in enumerate(solute["xyz"]):
+        if (np.all(c >= pocket_l_borders) 
+            and np.all(c <= pocket_h_borders)):    
+            for k in keys_list:
+                pocket_atoms[k].append(solute[k][i])
+            continue
+        elif (np.all(c >= periphery_l_borders) 
+              and np.all(c <= periphery_h_borders)):
+            for k in keys_list:
+                periphery_atoms[k].append(solute[k][i])
+            continue
+        else:
+            for k in keys_list:
+                rest_atoms[k].append(solute[k][i])
+    for k in keys_list:
+        pocket_atoms[k] = np.array(pocket_atoms[k])
+        periphery_atoms[k] = np.array(periphery_atoms[k])
+        rest_atoms[k] = np.array(rest_atoms[k])
+    return pocket_atoms, periphery_atoms, rest_atoms
