@@ -53,8 +53,8 @@ def read_top(top_file):
     return parameters
 
 def read_solute(crd_file, top_file):
-    solute = BindingEnergy.read_top(top_file)
-    solute["xyz"] = BindingEnergy.read_crd(crd_file)
+    solute = read_top(top_file)
+    solute["xyz"] = read_crd(crd_file)
     return solute
 
 def read_solvent(xvv_file):
@@ -106,6 +106,11 @@ def get_center(crd):
 def shift(crd, shift_vector):
     new_crd = crd - shift_vector
     return new_crd
+
+def shift_to_center(object):
+    """Shift object to its center"""
+    shift_vector = center(object["crd"])
+    object["crd"] = shift(object["crd"], shift_vector)
 
 def create_box(crd, delta, shell):
     """Create box around solute.
