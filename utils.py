@@ -4,9 +4,11 @@ import amberParm
 import constants
 
 
-class BindingEnergy:
-
+class Utils:
     def read_crd(crd_file):
+        """
+        Read .crd file from AmberTools
+        """
         crd = []
         with open(crd_file, "r") as f:
             f.readline()
@@ -15,7 +17,6 @@ class BindingEnergy:
                 data = np.fromstring(line, sep=" ")
                 crd.append(data)
         crd = np.hstack(crd).reshape((-1, 3))
-#        crd = np.loadtxt(crd_file, skiprows=2).reshape((-1, 3))
         return crd
         
     def read_top(top_file):
