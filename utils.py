@@ -109,8 +109,8 @@ def shift(crd, shift_vector):
 
 def shift_to_center(object):
     """Shift object to its center"""
-    shift_vector = center(object["crd"])
-    object["crd"] = shift(object["crd"], shift_vector)
+    shift_vector = get_center(object["xyz"])
+    object["xyz"] = shift(object["xyz"], shift_vector)
 
 def create_box(crd, delta, shell):
     """Create box around solute.
