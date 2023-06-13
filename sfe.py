@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+import copy
 
 
 def sfe(rism3d, selection=True):
@@ -65,7 +66,7 @@ def _calculate_cutoff(rism3d, selection=True):
     and integration area borders.
 
     Parameters:
-        rism3d : Rism3D instance.
+        rism3d : Rism3D instance with converged solution.
         selection : three-dimensional boolean array defining
                     the integration area.
     Returns:
@@ -84,27 +85,34 @@ def _calculate_cutoff(rism3d, selection=True):
     return r_cutoffs
 
 
-def _calculate_dcf_correction(rism3d, selection=True):
-    correction = 0
+def _calculate_dcf_corrections(rism3d, selection=True):
+    """Calculate correction to direct correlation function integral
+    caused by box truncation.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Array of correction values for each atom of solvent.
+    """
+    num_of_solvent_sites = rism3d._solvent["density"].shape
+    corrections = np.zeros(num_of_solvent_sites)
     cutoffs = _calculate_cutoff(rism3d, selection)
-    rho = rism3d._solvent["density"]
     dV = np.prod(rism3d._calculate_r_delta())
-    selected_grid_points = np.array([i[selection].reshape(-1) 
-                                     for i in rism3d._r_grid])
-    for xyz, e, r, c in zip(rism3d._solute["xyz"],
-                            rism3d._solute["epsilon"],
-                            rism3d._solute["rmin"],
-                            cutoffs):
+    selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
+    for xyz, e, r, cut in zip(rism3d._solute["xyz"],
+                              rism3d._solute["epsilon"],
+                              rism3d._solute["rmin"],
+                              cutoffs):
         epsilon = np.sqrt(e * rism3d._solvent["epsilon"])
         rmin = r + rism3d._solvent["rmin"]
         distances = np.linalg.norm(selected_grid_points - xyz[:, np.newaxis],
-                                   axis=1)
-        distances = distances[distances >= c][:, np.newaxis]
-#        u = epsilon * ((rmin / distances)**12 - 2 * (rmin / distances)**6)
-        u = 0
-        tmp = rho * (-np.sum(u) * dV 
-                     + np.pi * epsilon * (4 / 9) * (rmin**12 / c**9)
-                     - np.pi * epsilon * (8 / 3) * (rmin**6 / c**3))
-        correction += np.sum(tmp)
-#    correction /= rism3d._beta
-    return correction
+                                   axis=0)
+        distances = distances[distances >= cut][:, np.newaxis]
+        u = epsilon * ((rmin / distances)**12 - 2 * (rmin / distances)**6)
+        corrections += (np.sum(u, axis=0) * dV
+                        - np.pi * epsilon * (4 / 9) * (rmin**12 / cut**9)
+                        + np.pi * epsilon * (8 / 3) * (rmin**6 / cut**3))
+    corrections *= rism3d._beta
+    return corrections
