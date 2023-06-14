@@ -4,12 +4,30 @@ import copy
 
 
 def sfe(rism3d, selection=True):
+    """Calculate solvation free energy.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     sfe_type = {"hnc": _sfe_hnc, "kh": _sfe_kh}
     sfe = sfe_type[rism3d._options["closure"]](rism3d, selection)
     return sfe 
 
 
 def pressure_correction(rism3d, selection=True):
+    """Calculate pressure correction for solvation free energy.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     pc_type = {"hnc": _pressure_correction_hnc, 
                "kh": _pressure_correction_kh}
     pc = pc_type[rism3d._options["closure"]](rism3d, selection)
@@ -17,35 +35,73 @@ def pressure_correction(rism3d, selection=True):
 
 
 def sfe_pc(rism3d, selection=True):
+    """Calculate solvation free energy with pressure correction.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     sfe_pc = sfe(rism3d, selection) + pressure_correction(rism3d, selection)
     return sfe_pc
     
 
 def _sfe_hnc(rism3d, selection=True):
+    """Calculate solvation free energy for HNC closure.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     h = rism3d.h() * selection
     c = rism3d.c() * selection
     rho = rism3d._solvent["density"]
     dV = np.prod(rism3d._calculate_r_delta())
-    sfe = np.sum(np.tensordot(rho, 
-                              0.5 * h**2 - c - 0.5 * h * c, 
-                              axes=1)) * dV / rism3d._beta
+    dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
+    integrals = (np.sum(0.5 * h**2 - c - 0.5 * h * c, axis=(1, 2, 3)) * dV
+                 - dcf_corrections)
+    sfe = np.sum(integrals * rho) / rism3d._beta
     return sfe 
 
 
 def _sfe_kh(rism3d, selection=True):
+    """Calculate solvation free energy for KH closure.
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     h = rism3d.h() * selection
     c = rism3d.c() * selection
     rho = rism3d._solvent["density"]
     dV = np.prod(rism3d._calculate_r_delta())
-    sfe = np.sum(np.tensordot(rho, 
-                              (0.5 * h**2 * np.heaviside(-h, 0) 
-                               - c 
-                               - 0.5 * h * c), 
-                              axes=1)) * dV / rism3d._beta
+    dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
+    integrals = (np.sum(0.5 * h**2 * np.heaviside(-h, 0) - c - 0.5 * h * c, 
+                        axis=(1, 2, 3)) * dV
+                 - dcf_corrections)
+    sfe = np.sum(integrals * rho) / rism3d._beta
     return sfe
 
 
 def _pressure_correction_hnc(rism3d, selection=True):
+    """Calculate pressure correction for solvation free energy 
+    for HNC closure. 
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     h = rism3d.h() * selection
     c = rism3d.c() * selection
     rho = rism3d._solvent["density"]
@@ -57,6 +113,16 @@ def _pressure_correction_hnc(rism3d, selection=True):
 
 
 def _pressure_correction_kh(rism3d, selection=True):
+    """Calculate pressure correction for solvation free energy 
+    for KH closure. 
+
+    Parameters:
+        rism3d : Rism3D instance with converged solution.
+        selection : three-dimensional boolean array defining
+                    the integration area.
+    Returns:
+        Solvation free energy value.
+    """
     pc = _pressure_correction_hnc(rism3d, selection)
     return pc
    
