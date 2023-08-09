@@ -89,8 +89,8 @@ class Rism3D:
     def _oz(self):
         c_s_ft = self._fourier(self._c_s)
         gamma_ft = np.sum(self._chi 
-                          * np.expand_dims(c_s_ft, axis=0),
-                          axis=1) - c_s_ft
+                          * np.expand_dims(c_s_ft, axis=1),
+                          axis=0) - c_s_ft
         self._gamma = self._inverse_fourier(gamma_ft)
 
     def _hnc(self):
