@@ -3,7 +3,7 @@ from scipy import fftpack
 from scipy import interpolate
 
 
-def inverse_fourier_bessel(data, r_delta, k_delta):
+def calculate_inverse_fourier_bessel(data, r_delta, k_delta):
     """Calculate inverse Fourier-Bessel transform. 
     The input function should be tabulated on uniformly spaced grid. 
 
