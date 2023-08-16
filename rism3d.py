@@ -110,7 +110,7 @@ class Rism3D:
                             - self._h_l[e <= 0]) 
         
     def _calculate_susceptibility(self):
-        k_1d = (self._solvent["k_grid"]) / 2 / np.pi
+        k_1d = self._solvent["k_grid"]
         npoints = len(self._solvent["k_grid"])
         chi_1d = self._solvent["chi"]
         k_3d = np.linalg.norm(self._k_grid, axis=0)

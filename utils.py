@@ -72,7 +72,7 @@ def read_solvent(xvv_file):
     data["chi"] = xvv["XVV"].reshape((nsites, nsites, npoints), order="C")
     data["chi"] = np.transpose(data["chi"], axes=(1, 0, 2))
     r_delta = xvv["THERMO"][4]
-    k_delta = np.pi / (npoints + 1) / r_delta
+    k_delta = 1 / (2 * npoints * r_delta)
     data["k_grid"] = np.arange(npoints) * k_delta
     return data
     
