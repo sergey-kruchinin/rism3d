@@ -31,18 +31,19 @@ class Rism3D:
         self._v_s = self._get_short_potential()
         self._v_l = self._get_long_potential()
         self._theta = self._get_renormalized_potential()
-        self._c_s = np.zeros_like(self._v_s)
         self._gamma = np.zeros_like(self._v_s)
         
     def solve(self):
         self._use_solver()
 
     def get_h(self):
-        h = self._c_s + self._gamma
+        c_s = self._use_closure()
+        h = c_s + self._gamma
         return h
 
     def get_c(self):
-        c = self._c_s - self._v_l
+        c_s = self._use_closure()
+        c = c_s - self._v_l
         return c
 
     def get_parameters(self):
@@ -54,8 +55,8 @@ class Rism3D:
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
-            self._use_closure()
-            self._use_oz()
+            c_s = self._use_closure()
+            self._use_oz(c_s)
             self._gamma -= self._theta 
             e = np.max(np.abs(self._gamma - gamma_old))
             self._gamma = mix * self._gamma + (1 - mix) * gamma_old
@@ -67,7 +68,6 @@ class Rism3D:
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
             if e < self._parameters["accuracy"]:
-                self._use_closure()
                 break
                 
     def _use_mdiis_solver(self):
@@ -79,8 +79,8 @@ class Rism3D:
         step = 0
         print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
         while True:
-            self._use_closure()
-            self._use_oz()
+            c_s = self._use_closure()
+            self._use_oz(c_s)
             self._gamma -= self._theta 
             residual = self._gamma - gamma_old
             self._gamma = m.optimize(gamma_old, residual)
@@ -93,35 +93,34 @@ class Rism3D:
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
             if e < self._parameters["accuracy"]:
-                self._use_closure()
                 break
 
-    def _use_oz(self):
-        c_s_ft = self._get_fourier_transform(self._c_s)
+    def _use_oz(self, c_s):
+        c_s_ft = self._get_fourier_transform(c_s)
         gamma_ft = np.sum(self._chi 
                           * np.expand_dims(c_s_ft, axis=1),
                           axis=0) - c_s_ft
         self._gamma = self._get_inverse_fourier_transform(gamma_ft)
 
     def _use_hnc(self):
-        self._c_s = (np.exp(-self._v_s + self._gamma) 
-                     - 1 - self._gamma)
+        c_s = np.exp(-self._v_s + self._gamma) - 1 - self._gamma
+        return c_s
 
     def _use_kh(self):
+        c_s = np.zeros_like(self._gamma)
         e = -self._v_s + self._gamma
-        self._c_s[e > 0] = -self._v_s[e > 0]
-        self._c_s[e <= 0] = (np.exp(e[e <= 0]) 
-                            - 1 
-                            - self._gamma[e <= 0]) 
+        c_s[e > 0] = -self._v_s[e > 0]
+        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
+        return c_s
 
     def _use_pse3(self):
+        c_s = np.zeros_like(self._gamma)
         e = -self._v_s + self._gamma
-        self._c_s[e > 0] = (-self._v_s[e > 0] 
-                            + (1.0 / 2.0) * e[e > 0]**2 
-                            + (1.0 / 6.0) * e[e > 0]**3)
-        self._c_s[e <= 0] = (np.exp(e[e <= 0]) 
-                            - 1 
-                            - self._gamma[e <= 0]) 
+        c_s[e > 0] = (-self._v_s[e > 0] 
+                      + (1.0 / 2.0) * e[e > 0]**2 
+                      + (1.0 / 6.0) * e[e > 0]**3)
+        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
+        return c_s
         
     def _get_susceptibility(self):
         k_1d = self._solvent["k_grid"]
