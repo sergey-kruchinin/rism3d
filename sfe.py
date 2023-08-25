@@ -58,10 +58,10 @@ def _sfe_hnc(rism3d, selection=True):
     Returns:
         Solvation free energy value.
     """
-    h = rism3d.h() * selection
-    c = rism3d.c() * selection
+    h = rism3d.get_h() * selection
+    c = rism3d.get_c() * selection
     rho = rism3d._solvent["density"]
-    dV = np.prod(rism3d._calculate_r_delta())
+    dV = np.prod(rism3d._get_r_delta())
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 - c - 0.5 * h * c, axis=(1, 2, 3)) * dV
                  - dcf_corrections)
@@ -79,10 +79,10 @@ def _sfe_kh(rism3d, selection=True):
     Returns:
         Solvation free energy value.
     """
-    h = rism3d.h() * selection
-    c = rism3d.c() * selection
+    h = rism3d.get_h() * selection
+    c = rism3d.get_c() * selection
     rho = rism3d._solvent["density"]
-    dV = np.prod(rism3d._calculate_r_delta())
+    dV = np.prod(rism3d._get_r_delta())
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 * np.heaviside(-h, 0) - c - 0.5 * h * c, 
                         axis=(1, 2, 3)) * dV
@@ -102,10 +102,10 @@ def _pressure_correction_hnc(rism3d, selection=True):
     Returns:
         Solvation free energy value.
     """
-    h = rism3d.h() * selection
-    c = rism3d.c() * selection
+    h = rism3d.get_h() * selection
+    c = rism3d.get_c() * selection
     rho = rism3d._solvent["density"]
-    dV = np.prod(rism3d._calculate_r_delta())
+    dV = np.prod(rism3d._get_r_delta())
     pc = np.sum(np.tensordot(rho, 
                              0.5 * h + 0.5 * c, 
                              axes=1)) * dV / rism3d._beta
@@ -165,7 +165,7 @@ def _calculate_dcf_corrections(rism3d, selection=True):
     num_of_solvent_sites = rism3d._solvent["density"].shape
     corrections = np.zeros(num_of_solvent_sites)
     cutoffs = _calculate_cutoff(rism3d, selection)
-    dV = np.prod(rism3d._calculate_r_delta())
+    dV = np.prod(rism3d._get_r_delta())
     selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
     for xyz, e, r, cut in zip(rism3d._solute["xyz"],
                               rism3d._solute["epsilon"],

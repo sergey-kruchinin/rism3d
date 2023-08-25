@@ -2,8 +2,6 @@ TODO:
 - rework BindingEnergy.create_box method. 
   Make it works for non-centered solutes.
 
-- заменить все make и calculate в названиях методов на get
-
 - заменить options на parameters
 
 - сделать классы Solute и Solvent вместо dict's

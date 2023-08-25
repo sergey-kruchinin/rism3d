@@ -15,18 +15,21 @@ class Rism3D:
     def __init__(self, solute, solvent, box, options):
         self._options = copy.deepcopy(options)
         self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
-        closures = {"hnc": self._hnc, "kh": self._kh, "pse3": self._use_pse3}
+        closures = {"hnc": self._use_hnc, 
+                    "kh": self._use_kh, 
+                    "pse3": self._use_pse3}
         self._closure = closures[self._options["closure"]]
-        solvers = {"picard": self._picard_solver, "mdiis": self._mdiis_solver}
+        solvers = {"picard": self._use_picard_solver, 
+                   "mdiis": self._use_mdiis_solver}
         self._solver = solvers[self._options["solver"]]
         self._solvent = copy.deepcopy(solvent)
         self._box = copy.deepcopy(box)
-        self._r_grid = self._make_r_grid()
-        self._k_grid = self._make_k_grid()
-        self._chi = self._calculate_susceptibility()
+        self._r_grid = self._get_r_grid()
+        self._k_grid = self._get_k_grid()
+        self._chi = self._get_susceptibility()
         self._solute = copy.deepcopy(solute)
-        self._v_s = self._calculate_short_potential()
-        self._v_l = self._calculate_long_potential()
+        self._v_s = self._get_short_potential()
+        self._v_l = self._get_long_potential()
         self._theta = self._get_renormalized_potential()
         self._c_s = np.zeros_like(self._v_s)
         self._gamma = np.zeros_like(self._v_s)
@@ -34,14 +37,14 @@ class Rism3D:
     def solve(self):
         self._solver()
 
-    def _picard_solver(self):
+    def _use_picard_solver(self):
         mix = self._options["mix"]
         gamma_old = self._gamma.copy()
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
             self._closure()
-            self._oz()
+            self._use_oz()
             self._gamma -= self._theta 
             e = np.max(np.abs(self._gamma - gamma_old))
             self._gamma = mix * self._gamma + (1 - mix) * gamma_old
@@ -56,7 +59,7 @@ class Rism3D:
                 self._closure()
                 break
                 
-    def _mdiis_solver(self):
+    def _use_mdiis_solver(self):
         m = mdiis.MDIIS(self._options["mdiis_vectors"],
                         self._options["mdiis_mix"],
                         self._options["mdiis_max_residue"]
@@ -66,7 +69,7 @@ class Rism3D:
         print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
         while True:
             self._closure()
-            self._oz()
+            self._use_oz()
             self._gamma -= self._theta 
             residual = self._gamma - gamma_old
             self._gamma = m.optimize(gamma_old, residual)
@@ -82,26 +85,26 @@ class Rism3D:
                 self._closure()
                 break
 
-    def h(self):
+    def get_h(self):
         h = self._c_s + self._gamma
         return h
 
-    def c(self):
+    def get_c(self):
         c = self._c_s - self._v_l
         return c
 
-    def _oz(self):
-        c_s_ft = self._fourier(self._c_s)
+    def _use_oz(self):
+        c_s_ft = self._get_fourier_transform(self._c_s)
         gamma_ft = np.sum(self._chi 
                           * np.expand_dims(c_s_ft, axis=1),
                           axis=0) - c_s_ft
-        self._gamma = self._inverse_fourier(gamma_ft)
+        self._gamma = self._get_inverse_fourier_transform(gamma_ft)
 
-    def _hnc(self):
+    def _use_hnc(self):
         self._c_s = (np.exp(-self._v_s + self._gamma) 
                      - 1 - self._gamma)
 
-    def _kh(self):
+    def _use_kh(self):
         e = -self._v_s + self._gamma
         self._c_s[e > 0] = -self._v_s[e > 0]
         self._c_s[e <= 0] = (np.exp(e[e <= 0]) 
@@ -117,7 +120,7 @@ class Rism3D:
                             - 1 
                             - self._gamma[e <= 0]) 
         
-    def _calculate_susceptibility(self):
+    def _get_susceptibility(self):
         k_1d = self._solvent["k_grid"]
         npoints = len(self._solvent["k_grid"])
         chi_1d = self._solvent["chi"]
@@ -129,12 +132,12 @@ class Rism3D:
         chi = f(k_3d)
         return chi 
 
-    def _calculate_short_potential(self):
-        v = (self._calculate_lj_potential() 
-             + self._calculate_short_electrostatic_potential())
+    def _get_short_potential(self):
+        v = (self._get_lj_potential() 
+             + self._get_short_electrostatic_potential())
         return v
 
-    def _calculate_lj_potential(self):
+    def _get_lj_potential(self):
         v = 0
         for r, e, c, in zip(self._solute["rmin"],
                             self._solute["epsilon"],    
@@ -151,7 +154,7 @@ class Rism3D:
             v += self._beta * eps * (frac**2 - 2 * frac)
         return v
 
-    def _calculate_short_electrostatic_potential(self):
+    def _get_short_electrostatic_potential(self):
         v = 0
         dieps = self._options["dieps"]
         for q, c in zip(self._solute["charge"], 
@@ -166,7 +169,7 @@ class Rism3D:
                          axes=0) * self._beta / dieps
         return v
 
-    def _calculate_long_potential(self):
+    def _get_long_potential(self):
         """Calculate v_long * beta."""
         v_l = 0
         coef = self._beta / self._options["dieps"]
@@ -182,33 +185,33 @@ class Rism3D:
                            axes=0) * self._beta / dieps
         return v_l
         
-    def _fourier(self, data):
-        dV = np.prod(self._calculate_r_delta())
+    def _get_fourier_transform(self, data):
+        dV = np.prod(self._get_r_delta())
         shift = np.expand_dims(self._r_grid[:, 0, 0, 0], axis=(1, 2, 3))
         K = np.prod(np.exp(-2j * np.pi * self._k_grid * shift), axis=0)
         inv = fft.rfftn(data, axes=(-3, -2, -1), workers=-1) * dV * K
         return inv
 
-    def _inverse_fourier(self, data):
-        dV = np.prod(self._calculate_r_delta())
+    def _get_inverse_fourier_transform(self, data):
+        dV = np.prod(self._get_r_delta())
         shift = np.expand_dims(self._r_grid[:, 0, 0, 0], axis=(1, 2, 3))
         K = np.prod(np.exp(2j * np.pi * self._k_grid * shift), axis=0)
         shape = self._r_grid[0].shape
         inv = fft.irfftn(data * K, s=shape, axes=(-3, -2, -1), workers=-1) / dV
         return inv
 
-    def _make_r_grid(self):
+    def _get_r_grid(self):
         grids = [np.linspace(*i) for i in self._box]
         r_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
         return r_grid
 
-    def _calculate_r_delta(self):
+    def _get_r_delta(self):
         delta = np.array([self._r_grid[0, 1, 0, 0] - self._r_grid[0, 0, 0, 0], 
                           self._r_grid[1, 0, 1, 0] - self._r_grid[1, 0, 0, 0],
                           self._r_grid[2, 0, 0, 1] - self._r_grid[2, 0, 0, 0]])
         return delta
 
-    def _make_k_grid(self):
+    def _get_k_grid(self):
         points_and_steps = [(i[2], (i[1] - i[0]) / (i[2] - 1)) for i in self._box]
         grids = [fft.fftfreq(*i) for i in points_and_steps] 
         grids[-1] = fft.rfftfreq(*points_and_steps[-1])
