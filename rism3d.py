@@ -18,10 +18,10 @@ class Rism3D:
         closures = {"hnc": self._use_hnc, 
                     "kh": self._use_kh, 
                     "pse3": self._use_pse3}
-        self._closure = closures[self._parameters["closure"]]
+        self._use_closure = closures[self._parameters["closure"]]
         solvers = {"picard": self._use_picard_solver, 
                    "mdiis": self._use_mdiis_solver}
-        self._solver = solvers[self._parameters["solver"]]
+        self._use_solver = solvers[self._parameters["solver"]]
         self._solvent = copy.deepcopy(solvent)
         self._box = copy.deepcopy(box)
         self._r_grid = self._get_r_grid()
@@ -35,7 +35,7 @@ class Rism3D:
         self._gamma = np.zeros_like(self._v_s)
         
     def solve(self):
-        self._solver()
+        self._use_solver()
 
     def get_h(self):
         h = self._c_s + self._gamma
@@ -54,7 +54,7 @@ class Rism3D:
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
         while True:
-            self._closure()
+            self._use_closure()
             self._use_oz()
             self._gamma -= self._theta 
             e = np.max(np.abs(self._gamma - gamma_old))
@@ -67,7 +67,7 @@ class Rism3D:
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
             if e < self._parameters["accuracy"]:
-                self._closure()
+                self._use_closure()
                 break
                 
     def _use_mdiis_solver(self):
@@ -79,7 +79,7 @@ class Rism3D:
         step = 0
         print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
         while True:
-            self._closure()
+            self._use_closure()
             self._use_oz()
             self._gamma -= self._theta 
             residual = self._gamma - gamma_old
@@ -93,7 +93,7 @@ class Rism3D:
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
             if e < self._parameters["accuracy"]:
-                self._closure()
+                self._use_closure()
                 break
 
     def _use_oz(self):
