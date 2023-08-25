@@ -12,16 +12,16 @@ import fourier
 
 
 class Rism3D:
-    def __init__(self, solute, solvent, box, options):
-        self._options = copy.deepcopy(options)
-        self._beta = 1 / constants.k_Boltzmann / self._options["temperature"] 
+    def __init__(self, solute, solvent, box, parameters):
+        self._parameters = copy.deepcopy(parameters)
+        self._beta = 1 / constants.k_Boltzmann / self._parameters["temperature"] 
         closures = {"hnc": self._use_hnc, 
                     "kh": self._use_kh, 
                     "pse3": self._use_pse3}
-        self._closure = closures[self._options["closure"]]
+        self._closure = closures[self._parameters["closure"]]
         solvers = {"picard": self._use_picard_solver, 
                    "mdiis": self._use_mdiis_solver}
-        self._solver = solvers[self._options["solver"]]
+        self._solver = solvers[self._parameters["solver"]]
         self._solvent = copy.deepcopy(solvent)
         self._box = copy.deepcopy(box)
         self._r_grid = self._get_r_grid()
@@ -37,8 +37,19 @@ class Rism3D:
     def solve(self):
         self._solver()
 
+    def get_h(self):
+        h = self._c_s + self._gamma
+        return h
+
+    def get_c(self):
+        c = self._c_s - self._v_l
+        return c
+
+    def get_parameters(self):
+        return self._parameters
+
     def _use_picard_solver(self):
-        mix = self._options["mix"]
+        mix = self._parameters["mix"]
         gamma_old = self._gamma.copy()
         step = 0
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))
@@ -51,18 +62,18 @@ class Rism3D:
             step += 1
             gamma_old = self._gamma.copy()
             print("{0:<6d}{1:18.8e}".format(step, e))
-            if step >= self._options["nsteps"]:
+            if step >= self._parameters["nsteps"]:
                 raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
-            if e < self._options["accuracy"]:
+            if e < self._parameters["accuracy"]:
                 self._closure()
                 break
                 
     def _use_mdiis_solver(self):
-        m = mdiis.MDIIS(self._options["mdiis_vectors"],
-                        self._options["mdiis_mix"],
-                        self._options["mdiis_max_residue"]
+        m = mdiis.MDIIS(self._parameters["mdiis_vectors"],
+                        self._parameters["mdiis_mix"],
+                        self._parameters["mdiis_max_residue"]
                         )
         gamma_old = self._gamma.copy()
         step = 0
@@ -77,21 +88,13 @@ class Rism3D:
             step += 1
             gamma_old = self._gamma.copy()
             print(f"{step:<6d}{e:18.8e}{m.size():>7d}")
-            if step >= self._options["nsteps"]:
+            if step >= self._parameters["nsteps"]:
                 raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
             if np.isnan(e) or np.isinf(e):
                 raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
-            if e < self._options["accuracy"]:
+            if e < self._parameters["accuracy"]:
                 self._closure()
                 break
-
-    def get_h(self):
-        h = self._c_s + self._gamma
-        return h
-
-    def get_c(self):
-        c = self._c_s - self._v_l
-        return c
 
     def _use_oz(self):
         c_s_ft = self._get_fourier_transform(self._c_s)
@@ -156,14 +159,14 @@ class Rism3D:
 
     def _get_short_electrostatic_potential(self):
         v = 0
-        dieps = self._options["dieps"]
+        dieps = self._parameters["dieps"]
         for q, c in zip(self._solute["charge"], 
                         self._solute["xyz"]):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
             d[d < 1e-6] = 1e-6
-            v += q * special.erfc(d * self._options["smear"]) / d
+            v += q * special.erfc(d * self._parameters["smear"]) / d
         v = np.tensordot(self._solvent["charge"], 
                          v, 
                          axes=0) * self._beta / dieps
@@ -172,14 +175,14 @@ class Rism3D:
     def _get_long_potential(self):
         """Calculate v_long * beta."""
         v_l = 0
-        coef = self._beta / self._options["dieps"]
-        dieps = self._options["dieps"]
+        coef = self._beta / self._parameters["dieps"]
+        dieps = self._parameters["dieps"]
         for q, c in zip(self._solute["charge"], self._solute["xyz"]):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
             d[d < 1e-6] = 1e-6
-            v_l += q * special.erf(d * self._options["smear"]) / d
+            v_l += q * special.erf(d * self._parameters["smear"]) / d
         v_l = np.tensordot(self._solvent["charge"], 
                            v_l, 
                            axes=0) * self._beta / dieps

@@ -2,8 +2,6 @@ TODO:
 - rework BindingEnergy.create_box method. 
   Make it works for non-centered solutes.
 
-- заменить options на parameters
-
 - сделать классы Solute и Solvent вместо dict's
 
 - оставить в rism3d только одну кор. функцию (гамма или с, на выбор)

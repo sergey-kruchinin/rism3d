@@ -14,7 +14,7 @@ def sfe(rism3d, selection=True):
         Solvation free energy value.
     """
     sfe_type = {"hnc": _sfe_hnc, "kh": _sfe_kh}
-    sfe = sfe_type[rism3d._options["closure"]](rism3d, selection)
+    sfe = sfe_type[rism3d.get_parameters()["closure"]](rism3d, selection)
     return sfe 
 
 
@@ -30,7 +30,7 @@ def pressure_correction(rism3d, selection=True):
     """
     pc_type = {"hnc": _pressure_correction_hnc, 
                "kh": _pressure_correction_kh}
-    pc = pc_type[rism3d._options["closure"]](rism3d, selection)
+    pc = pc_type[rism3d.get_parameters()["closure"]](rism3d, selection)
     return pc 
 
 
