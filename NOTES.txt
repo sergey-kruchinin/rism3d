@@ -1,10 +1,6 @@
 TODO:
-- добавить электростатику по Perkyns'у в picard_solver
-
 - rework BindingEnergy.create_box method. 
   Make it works for non-centered solutes.
-
-- убрать лишние методы из rism3d
 
 - заменить все make и calculate в названиях методов на get
 

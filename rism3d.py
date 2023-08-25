@@ -26,7 +26,6 @@ class Rism3D:
         self._chi = self._calculate_susceptibility()
         self._solute = copy.deepcopy(solute)
         self._v_s = self._calculate_short_potential()
-        self._h_l = self._calculate_long_tcf()
         self._v_l = self._calculate_long_potential()
         self._theta = self._get_renormalized_potential()
         self._c_s = np.zeros_like(self._v_s)
@@ -197,71 +196,6 @@ class Rism3D:
         shape = self._r_grid[0].shape
         inv = fft.irfftn(data * K, s=shape, axes=(-3, -2, -1), workers=-1) / dV
         return inv
-
-    def _calculate_long_tcf(self):
-        dieps = self._options["dieps"]
-        sum_solute = 0
-        for q, c in zip(self._solute["charge"], self._solute["xyz"]):
-            r_dot_k = np.tensordot(c, self._k_grid, axes=1)
-            sum_solute += q * np.exp(-2j * np.pi * r_dot_k)
-        sum_solvent = np.tensordot(self._chi, 
-                                   self._solvent["charge"], 
-                                   axes=([1, 0]))
-        k = np.linalg.norm(self._k_grid, axis=0)
-        k[0, 0, 0] = 1
-        l = self._options["smear"]
-        h_long = (-self._beta / dieps / np.pi / k**2 
-                  * np.exp(-np.pi**2 * k**2 / l**2)
-                  * sum_solvent
-                  * sum_solute)
-        h_extrapolate = interpolate.interp1d(k[0, 0, 1:], h_long[:, 0, 0, 1:],
-                                             kind="cubic",
-                                             fill_value="extrapolate")
-        h_long[:, 0, 0, 0] = h_extrapolate(0)
-        h_long = self._inverse_fourier(h_long)
-        return h_long
-
-    def _extrapolate_long_tcf(self):
-        sum_solute = 0
-        dieps = self._options["dieps"]
-        sum_solute = np.sum(self._solute["charge"])
-        sum_solvent = np.tensordot(self._solvent["charge"], 
-                                   self._solvent["chi"][:, :, 1:],
-                                   axes=1)
-        k = self._solvent["k_grid"][1:]
-        h_l = -self._beta / dieps / np.pi / k**2 * sum_solute * sum_solvent
-        h_extrapolate = interpolate.interp1d(k, h_l, 
-                                             kind="cubic", 
-                                             fill_value="extrapolate")
-        h_l_0 = h_extrapolate(0)
-        return h_l_0
-
-    def _make_intramolecular_correlation_matrix(self):
-        sites_in_species = []
-        end = 0
-        start_index = 0
-        for i in [len(self._solvent["multy"]), ]:
-            begin = end 
-            end = end + i
-            number_of_sites = np.sum(self._solvent["multy"][begin:end])
-            stop_index = start_index + number_of_sites
-            sites_indexes = list(range(start_index, stop_index))
-            start_index = stop_index
-            sites_in_species.append(sites_indexes)
-        coordinates = self._solvent["xyz"]
-        nsites = coordinates.shape[0]
-        distances = np.zeros((nsites, nsites))
-        for sites in sites_in_species:
-            for pair in itertools.permutations(sites, 2):
-                distances[pair] = np.linalg.norm(coordinates[pair[0]]
-                                                 - coordinates[pair[1]])
-        np.fill_diagonal(distances, 0)
-        k = np.linalg.norm(self._k_grid, axis=0)
-        # np.pi is reduced in 2pi multiplier cause numpy sinc routine
-        # uses definition of sinc as sin(pi x) / (pi x)
-        k_distances = np.tensordot(distances, k, axes=0) * 2
-        w = np.sinc(k_distances)
-        return w
 
     def _make_r_grid(self):
         grids = [np.linspace(*i) for i in self._box]
