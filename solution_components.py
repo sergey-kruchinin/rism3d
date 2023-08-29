@@ -2,13 +2,13 @@ import numpy as np
 import amberParm
 
 
-class Solute:
+class SoluteSite:
     def __init__(self, charge, rmin, epsilon, coordinates):
         self._charge = charge.copy()
         self._rmin = rmin.copy()
         self._epsilon = epsilon.copy()
         self._coordinates = coordinates.copy()
-
+        
     @property
     def charge(self):
         return self._charge
@@ -24,6 +24,40 @@ class Solute:
     @property
     def coordinates(self):
         return self._coordinates
+
+
+class SoluteIterator:
+    def __init__(self, solute):
+        self._solute = solute
+
+    def __iter__(self):
+        self._site_index = 0
+        return self
+
+    def __next__(self):
+        if self._site_index >= self._solute.number_of_sites:
+            raise StopIteration
+        site = SoluteSite(self._solute.charge[self._site_index],
+                          self._solute.rmin[self._site_index],
+                          self._solute.epsilon[self._site_index],
+                          self._solute.coordinates[self._site_index])
+        self._site_index += 1
+        return site
+
+
+class Solute(SoluteSite):
+    def __init__(self, charge, rmin, epsilon, coordinates):
+        super().__init__(charge, rmin, epsilon, coordinates)
+        self._number_of_sites = len(self._charge)
+
+    @property
+    def number_of_sites(self):
+        return self._number_of_sites
+
+    @property
+    def sites(self):
+        sites_iterator = SoluteIterator(self)    
+        return sites_iterator
 
     @classmethod
     def read_from_ambertools(cls, crd_filename, top_filename):
@@ -46,7 +80,7 @@ class Solute:
         """Shift solute to its center"""
         shift_vector = self.get_center()
         self.shift(shift_vector)
-        
+
 
 def _read_top(top_file):
     top = amberParm.amberParm(top_file)
