@@ -143,7 +143,7 @@ def _calculate_cutoff(rism3d, selection=True):
     """
     xyz_min = np.array([np.min(i[selection]) for i in rism3d._r_grid])
     xyz_max = np.array([np.max(i[selection]) for i in rism3d._r_grid])
-    xyz = rism3d._solute["xyz"]
+    xyz = rism3d._solute.coordinates
     xyz_cutoffs = np.minimum(xyz - xyz_min, xyz_max - xyz)
     r_cutoffs = np.min(xyz_cutoffs, axis=1)
     if np.any(r_cutoffs < 0):
@@ -167,9 +167,9 @@ def _calculate_dcf_corrections(rism3d, selection=True):
     cutoffs = _calculate_cutoff(rism3d, selection)
     dV = np.prod(rism3d._get_r_delta())
     selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
-    for xyz, e, r, cut in zip(rism3d._solute["xyz"],
-                              rism3d._solute["epsilon"],
-                              rism3d._solute["rmin"],
+    for xyz, e, r, cut in zip(rism3d._solute.coordinates,
+                              rism3d._solute.epsilon,
+                              rism3d._solute.rmin,
                               cutoffs):
         epsilon = np.sqrt(e * rism3d._solvent["epsilon"])
         rmin = r + rism3d._solvent["rmin"]

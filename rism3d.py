@@ -27,7 +27,7 @@ class Rism3D:
         self._r_grid = self._get_r_grid()
         self._k_grid = self._get_k_grid()
         self._chi = self._get_susceptibility()
-        self._solute = copy.deepcopy(solute)
+        self._solute = solute
         self._v_s = self._get_short_potential()
         self._v_l = self._get_long_potential()
         self._theta = self._get_renormalized_potential()
@@ -141,9 +141,9 @@ class Rism3D:
 
     def _get_lj_potential(self):
         v = 0
-        for r, e, c, in zip(self._solute["rmin"],
-                            self._solute["epsilon"],    
-                            self._solute["xyz"]):
+        for r, e, c, in zip(self._solute.rmin,
+                            self._solute.epsilon,    
+                            self._solute.coordinates):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
@@ -159,8 +159,8 @@ class Rism3D:
     def _get_short_electrostatic_potential(self):
         v = 0
         dieps = self._parameters["dieps"]
-        for q, c in zip(self._solute["charge"], 
-                        self._solute["xyz"]):
+        for q, c in zip(self._solute.charge, 
+                        self._solute.coordinates):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
@@ -176,7 +176,7 @@ class Rism3D:
         v_l = 0
         coef = self._beta / self._parameters["dieps"]
         dieps = self._parameters["dieps"]
-        for q, c in zip(self._solute["charge"], self._solute["xyz"]):
+        for q, c in zip(self._solute.charge, self._solute.coordinates):
             d = np.linalg.norm(self._r_grid 
                                - np.expand_dims(c, axis=(1, 2, 3)),
                                axis=0)
@@ -242,7 +242,7 @@ class Rism3D:
         theta_shape = (self._solvent["multy"].shape 
                        + self._r_grid.shape[1:])
         theta = np.zeros(theta_shape)
-        for q, xyz in zip(self._solute["charge"], self._solute["xyz"]):
+        for q, xyz in zip(self._solute.charge, self._solute.coordinates):
             site_position = np.expand_dims(xyz, axis=(1, 2, 3))
             distances = np.linalg.norm(self._r_grid - site_position, axis=0)
             theta_site_interpolated = f(distances)
