@@ -167,14 +167,12 @@ def _calculate_dcf_corrections(rism3d, selection=True):
     cutoffs = _calculate_cutoff(rism3d, selection)
     dV = np.prod(rism3d._get_r_delta())
     selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
-    for xyz, e, r, cut in zip(rism3d._solute.coordinates,
-                              rism3d._solute.epsilon,
-                              rism3d._solute.rmin,
-                              cutoffs):
-        epsilon = np.sqrt(e * rism3d._solvent["epsilon"])
-        rmin = r + rism3d._solvent["rmin"]
-        distances = np.linalg.norm(selected_grid_points - xyz[:, np.newaxis],
-                                   axis=0)
+    for site, cut in zip(rism3d._solute.sites, cutoffs):
+        epsilon = np.sqrt(site.epsilon * rism3d._solvent["epsilon"])
+        rmin = site.rmin + rism3d._solvent["rmin"]
+        site_position = site.coordinates[:, np.newaxis]
+        distances = np.linalg.norm(selected_grid_points 
+                                   - site_position, axis=0)
         distances = distances[distances >= cut][:, np.newaxis]
         u = epsilon * ((rmin / distances)**12 - 2 * (rmin / distances)**6)
         corrections += (np.sum(u, axis=0) * dV

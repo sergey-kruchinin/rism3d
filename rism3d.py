@@ -141,17 +141,15 @@ class Rism3D:
 
     def _get_lj_potential(self):
         v = 0
-        for r, e, c, in zip(self._solute.rmin,
-                            self._solute.epsilon,    
-                            self._solute.coordinates):
-            d = np.linalg.norm(self._r_grid 
-                               - np.expand_dims(c, axis=(1, 2, 3)),
-                               axis=0)
+        for site in self._solute.sites:
+            site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+            d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
             d = 1.0 / d
-            r_min = r + self._solvent["rmin"]
+            r_min = site.rmin + self._solvent["rmin"]
             frac = np.tensordot(r_min, d, axes=0)**6
-            eps = np.expand_dims(np.sqrt(e * self._solvent["epsilon"]),
+            eps = np.expand_dims(np.sqrt(site.epsilon 
+                                         * self._solvent["epsilon"]),
                                  axis=(1, 2, 3))
             v += self._beta * eps * (frac**2 - 2 * frac)
         return v
@@ -159,13 +157,11 @@ class Rism3D:
     def _get_short_electrostatic_potential(self):
         v = 0
         dieps = self._parameters["dieps"]
-        for q, c in zip(self._solute.charge, 
-                        self._solute.coordinates):
-            d = np.linalg.norm(self._r_grid 
-                               - np.expand_dims(c, axis=(1, 2, 3)),
-                               axis=0)
+        for site in self._solute.sites:
+            site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+            d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
-            v += q * special.erfc(d * self._parameters["smear"]) / d
+            v += site.charge * special.erfc(d * self._parameters["smear"]) / d
         v = np.tensordot(self._solvent["charge"], 
                          v, 
                          axes=0) * self._beta / dieps
@@ -176,12 +172,11 @@ class Rism3D:
         v_l = 0
         coef = self._beta / self._parameters["dieps"]
         dieps = self._parameters["dieps"]
-        for q, c in zip(self._solute.charge, self._solute.coordinates):
-            d = np.linalg.norm(self._r_grid 
-                               - np.expand_dims(c, axis=(1, 2, 3)),
-                               axis=0)
+        for site in self._solute.sites:
+            site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+            d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
-            v_l += q * special.erf(d * self._parameters["smear"]) / d
+            v_l += site.charge * special.erf(d * self._parameters["smear"]) / d
         v_l = np.tensordot(self._solvent["charge"], 
                            v_l, 
                            axes=0) * self._beta / dieps
@@ -242,9 +237,9 @@ class Rism3D:
         theta_shape = (self._solvent["multy"].shape 
                        + self._r_grid.shape[1:])
         theta = np.zeros(theta_shape)
-        for q, xyz in zip(self._solute.charge, self._solute.coordinates):
-            site_position = np.expand_dims(xyz, axis=(1, 2, 3))
+        for site in self._solute.sites:
+            site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
             distances = np.linalg.norm(self._r_grid - site_position, axis=0)
             theta_site_interpolated = f(distances)
-            theta = theta + q * theta_site_interpolated
+            theta = theta + site.charge * theta_site_interpolated
         return theta 
