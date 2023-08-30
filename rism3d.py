@@ -33,6 +33,10 @@ class Rism3D:
         self._theta = self._get_renormalized_potential()
         self._gamma = np.zeros_like(self._v_s)
         
+    @property
+    def parameters(self):
+        return self._parameters
+
     def solve(self):
         self._use_solver()
 
@@ -45,9 +49,6 @@ class Rism3D:
         c_s = self._use_closure()
         c = c_s - self._v_l
         return c
-
-    def get_parameters(self):
-        return self._parameters
 
     def _use_picard_solver(self):
         mix = self._parameters["mix"]
