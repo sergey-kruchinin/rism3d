@@ -14,7 +14,8 @@ import fourier
 class Rism3D:
     def __init__(self, solute, solvent, box, parameters):
         self._parameters = copy.deepcopy(parameters)
-        self._beta = 1 / constants.k_Boltzmann / self._parameters["temperature"] 
+        self._beta = 1 / (constants.k_Boltzmann 
+                          * self._parameters["temperature"]) 
         closures = {"hnc": self._use_hnc, 
                     "kh": self._use_kh, 
                     "pse3": self._use_pse3}
