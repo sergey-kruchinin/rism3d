@@ -60,7 +60,7 @@ def _sfe_hnc(rism3d, selection=True):
     """
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
-    rho = rism3d._solvent["density"]
+    rho = rism3d._solvent.density
     dV = np.prod(rism3d._get_r_delta())
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 - c - 0.5 * h * c, axis=(1, 2, 3)) * dV
@@ -81,7 +81,7 @@ def _sfe_kh(rism3d, selection=True):
     """
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
-    rho = rism3d._solvent["density"]
+    rho = rism3d._solvent.density
     dV = np.prod(rism3d._get_r_delta())
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 * np.heaviside(-h, 0) - c - 0.5 * h * c, 
@@ -104,7 +104,7 @@ def _pressure_correction_hnc(rism3d, selection=True):
     """
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
-    rho = rism3d._solvent["density"]
+    rho = rism3d._solvent.density
     dV = np.prod(rism3d._get_r_delta())
     pc = np.sum(np.tensordot(rho, 
                              0.5 * h + 0.5 * c, 
@@ -162,14 +162,13 @@ def _calculate_dcf_corrections(rism3d, selection=True):
     Returns:
         Array of correction values for each atom of solvent.
     """
-    num_of_solvent_sites = rism3d._solvent["density"].shape
-    corrections = np.zeros(num_of_solvent_sites)
+    corrections = np.zeros(rism3d._solvent.number_of_sites)
     cutoffs = _calculate_cutoff(rism3d, selection)
     dV = np.prod(rism3d._get_r_delta())
     selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
     for site, cut in zip(rism3d._solute.sites, cutoffs):
-        epsilon = np.sqrt(site.epsilon * rism3d._solvent["epsilon"])
-        rmin = site.rmin + rism3d._solvent["rmin"]
+        epsilon = np.sqrt(site.epsilon * rism3d._solvent.epsilon)
+        rmin = site.rmin + rism3d._solvent.rmin
         site_position = site.coordinates[:, np.newaxis]
         distances = np.linalg.norm(selected_grid_points 
                                    - site_position, axis=0)

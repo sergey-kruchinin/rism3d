@@ -22,7 +22,7 @@ class Rism3D:
         solvers = {"picard": self._use_picard_solver, 
                    "mdiis": self._use_mdiis_solver}
         self._use_solver = solvers[self._parameters["solver"]]
-        self._solvent = copy.deepcopy(solvent)
+        self._solvent = solvent
         self._box = copy.deepcopy(box)
         self._r_grid = self._get_r_grid()
         self._k_grid = self._get_k_grid()
@@ -123,9 +123,9 @@ class Rism3D:
         return c_s
         
     def _get_susceptibility(self):
-        k_1d = self._solvent["k_grid"]
-        npoints = len(self._solvent["k_grid"])
-        chi_1d = self._solvent["chi"]
+        k_1d = self._solvent.k_grid
+        npoints = len(self._solvent.k_grid)
+        chi_1d = self._solvent.susceptibility
         k_3d = np.linalg.norm(self._k_grid, axis=0)
         f = interpolate.interp1d(k_1d, 
                                  chi_1d, 
@@ -146,10 +146,10 @@ class Rism3D:
             d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
             d = 1.0 / d
-            r_min = site.rmin + self._solvent["rmin"]
+            r_min = site.rmin + self._solvent.rmin
             frac = np.tensordot(r_min, d, axes=0)**6
             eps = np.expand_dims(np.sqrt(site.epsilon 
-                                         * self._solvent["epsilon"]),
+                                         * self._solvent.epsilon),
                                  axis=(1, 2, 3))
             v += self._beta * eps * (frac**2 - 2 * frac)
         return v
@@ -162,7 +162,7 @@ class Rism3D:
             d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
             v += site.charge * special.erfc(d * self._parameters["smear"]) / d
-        v = np.tensordot(self._solvent["charge"], 
+        v = np.tensordot(self._solvent.charge, 
                          v, 
                          axes=0) * self._beta / dieps
         return v
@@ -177,7 +177,7 @@ class Rism3D:
             d = np.linalg.norm(self._r_grid - site_position, axis=0)
             d[d < 1e-6] = 1e-6
             v_l += site.charge * special.erf(d * self._parameters["smear"]) / d
-        v_l = np.tensordot(self._solvent["charge"], 
+        v_l = np.tensordot(self._solvent.charge, 
                            v_l, 
                            axes=0) * self._beta / dieps
         return v_l
@@ -216,10 +216,10 @@ class Rism3D:
         return k_grid
 
     def _get_renormalized_potential(self):
-        solvent_charges = self._solvent["charge"]
-        chi = self._solvent["chi"]
+        solvent_charges = self._solvent.charge
+        chi = self._solvent.susceptibility
         theta_site_ft = np.einsum("i,ijk->jk", solvent_charges, chi)
-        k_1d = self._solvent["k_grid"]
+        k_1d = self._solvent.k_grid
         phi_ft = (self._beta 
                   * potentials.make_inverse_long_coulomb_potential(k_1d, 1, 1))
         theta_site_ft = theta_site_ft * phi_ft
@@ -234,7 +234,7 @@ class Rism3D:
                                  theta_site, 
                                  kind="cubic", 
                                  fill_value="extrapolate")
-        theta_shape = (self._solvent["multy"].shape 
+        theta_shape = (self._solvent.multy.shape 
                        + self._r_grid.shape[1:])
         theta = np.zeros(theta_shape)
         for site in self._solute.sites:
