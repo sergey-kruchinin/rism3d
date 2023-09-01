@@ -2,8 +2,6 @@ TODO:
 - rework BindingEnergy.create_box method. 
   Make it works for non-centered solutes.
 
-- может быть вынести non-public методы класса rism3d из класса?
-
 - может быть сменить порядок заполнения массивов данными?
 
 - переименовать sfe модуль
