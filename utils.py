@@ -29,27 +29,6 @@ def read_mdl(mdl_file, molarity):
     return data
 
 
-def create_box(crd, delta, shell):
-    """Create box around solute.
-
-    Works correctly for centered solutes only.
-    """
-    spacing = np.max(crd, axis=0) - np.min(crd, axis=0) + 2 * shell
-    npoints = np.ceil(spacing / delta).astype(int) + 1
-    borders = (npoints - 1) * delta / 2
-    box = [(-b, b, p) for b, p in zip(borders, npoints)]
-    return box
-
-
-def create_box_from_dx(dx):
-    spacing = np.diagonal(dx.delta)
-    min_border = dx.origin
-    points = dx.size
-    max_border = (points - 1) * spacing + min_border
-    box = [(l, h, p) for l, h, p in zip(min_border, max_border, points)]
-    return box
-
-
 def select_pocket_region(r_grid, pocket):
     """Define grid points belonging to pocket region.
 

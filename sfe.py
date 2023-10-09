@@ -61,7 +61,7 @@ def _sfe_hnc(rism3d, selection=True):
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
     rho = rism3d._solvent.density
-    dV = np.prod(rism3d.r_delta)
+    dV = rism3d.box.cell_volume
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 - c - 0.5 * h * c, axis=(1, 2, 3)) * dV
                  - dcf_corrections)
@@ -82,7 +82,7 @@ def _sfe_kh(rism3d, selection=True):
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
     rho = rism3d._solvent.density
-    dV = np.prod(rism3d.r_delta)
+    dV = rism3d.box.cell_volume
     dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 * np.heaviside(-h, 0) - c - 0.5 * h * c, 
                         axis=(1, 2, 3)) * dV
@@ -105,7 +105,7 @@ def _pressure_correction_hnc(rism3d, selection=True):
     h = rism3d.get_h() * selection
     c = rism3d.get_c() * selection
     rho = rism3d._solvent.density
-    dV = np.prod(rism3d.r_delta)
+    dV = rism3d.box.cell_volume
     pc = np.sum(np.tensordot(rho, 
                              0.5 * h + 0.5 * c, 
                              axes=1)) * dV / rism3d.beta
@@ -141,8 +141,8 @@ def _calculate_cutoff(rism3d, selection=True):
     If any of the solute atoms is out of the integration area 
     the warning will be thrown.
     """
-    xyz_min = np.array([np.min(i[selection]) for i in rism3d._r_grid])
-    xyz_max = np.array([np.max(i[selection]) for i in rism3d._r_grid])
+    xyz_min = np.array([np.min(i[selection]) for i in rism3d.box.r_grid])
+    xyz_max = np.array([np.max(i[selection]) for i in rism3d.box.r_grid])
     xyz = rism3d._solute.coordinates
     xyz_cutoffs = np.minimum(xyz - xyz_min, xyz_max - xyz)
     r_cutoffs = np.min(xyz_cutoffs, axis=1)
@@ -164,8 +164,8 @@ def _calculate_dcf_corrections(rism3d, selection=True):
     """
     corrections = np.zeros(rism3d._solvent.number_of_sites)
     cutoffs = _calculate_cutoff(rism3d, selection)
-    dV = np.prod(rism3d.r_delta)
-    selected_grid_points = copy.deepcopy(rism3d._r_grid).reshape((3, -1))
+    dV = rism3d.box.cell_volume
+    selected_grid_points = copy.deepcopy(rism3d.box.r_grid).reshape((3, -1))
     for site, cut in zip(rism3d._solute.sites, cutoffs):
         epsilon = np.sqrt(site.epsilon * rism3d._solvent.epsilon)
         rmin = site.rmin + rism3d._solvent.rmin
