@@ -143,12 +143,9 @@ class Rism3D:
 
 
 def _get_susceptibility(solvent, box):
-    k_1d = solvent.k_grid
-    npoints = len(solvent.k_grid)
-    chi_1d = solvent.susceptibility
     k_distances = np.linalg.norm(box.k_grid, axis=0)
-    f = interpolate.interp1d(k_1d, 
-                             chi_1d, 
+    f = interpolate.interp1d(solvent.k_grid, 
+                             solvent.susceptibility, 
                              kind="cubic", 
                              fill_value="extrapolate")
     chi = f(k_distances)
