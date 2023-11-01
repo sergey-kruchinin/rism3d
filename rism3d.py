@@ -2,7 +2,6 @@ import copy
 import numpy as np
 from scipy import fft
 from scipy import interpolate
-from scipy import special
 import itertools
 import constants
 import mdiis
@@ -27,16 +26,23 @@ class Rism3D:
                    "mdiis": self._use_mdiis_solver}
         self._use_solver = solvers[self._parameters["solver"]]
         self._chi = _get_susceptibility(self._solvent, self._box)
-        self._v_s = _get_short_potential(self._solute, self._solvent, 
-                                         self._box, 
-                                         self._parameters["smear"], 
-                                         self._parameters["dieps"], 
-                                         self._beta)
-        self._v_l = _get_long_potential(self._solute, self._solvent, 
-                                        self._box, 
-                                        self._parameters["smear"], 
-                                        self._parameters["dieps"], 
-                                        self._beta)
+        self._v_s = (potentials.get_lj(self._solute, 
+                                       self._solvent, 
+                                       self._box, 
+                                       self._beta) 
+                     + potentials.get_short_coulomb(self._solute, 
+                                                    self._solvent, 
+                                                    self._box, 
+                                                    self._parameters["smear"], 
+                                                    self._parameters["dieps"], 
+                                                    self._beta)
+                     )
+        self._v_l = potentials.get_long_coulomb(self._solute, 
+                                                self._solvent, 
+                                                self._box, 
+                                                self._parameters["smear"], 
+                                                self._parameters["dieps"], 
+                                                self._beta)
         self._theta = _get_renormalized_potential(self._solute, self._solvent, 
                                                   self._box, 
                                                   self._parameters["smear"], 
@@ -152,53 +158,6 @@ def _get_susceptibility(solvent, box):
     return chi 
 
 
-def _get_lj_potential(solute, solvent, box, beta):
-    v = 0
-    for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
-        d[d < 1e-6] = 1e-6
-        d = 1.0 / d
-        r_min = site.rmin + solvent.rmin
-        frac = np.tensordot(r_min, d, axes=0)**6
-        eps = np.expand_dims(np.sqrt(site.epsilon * solvent.epsilon),
-                             axis=(1, 2, 3))
-        v += beta * eps * (frac**2 - 2 * frac)
-    return v
-
-
-def _get_short_electrostatic_potential(solute, solvent, box, smear, 
-                                       dieps, beta):
-    v = 0
-    for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
-        d[d < 1e-6] = 1e-6
-        v += site.charge * special.erfc(d * smear) / d
-    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
-    return v
-
-
-def _get_short_potential(solute, solvent, box, smear, dieps, beta):
-    v = (_get_lj_potential(solute, solvent, box, beta) 
-         + _get_short_electrostatic_potential(solute, solvent, box, smear, 
-                                              dieps, beta))
-    return v
-
-
-def _get_long_potential(solute, solvent, box, smear, dieps, beta):
-    """Calculate v_long * beta."""
-    v = 0
-    coef = beta / dieps
-    for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
-        d[d < 1e-6] = 1e-6
-        v += site.charge * special.erf(d * smear) / d
-    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
-    return v
-    
-
 def _get_fourier_transform(data, box):
     dV = box.cell_volume
     shift = np.expand_dims(box.r_grid[:, 0, 0, 0], axis=(1, 2, 3))
@@ -220,8 +179,7 @@ def _get_renormalized_potential(solute, solvent, box, smear, beta):
     theta_site_ft = np.einsum("i,ijk->jk", solvent.charge, 
                               solvent.susceptibility)
     k_1d = solvent.k_grid
-    phi_ft = (potentials.make_inverse_long_coulomb_potential(k_1d, 1, 1, smear)
-              * beta) 
+    phi_ft = potentials.get_inverse_long_coulomb(k_1d, 1, 1, smear) * beta 
     theta_site_ft = theta_site_ft * phi_ft
     k_delta = k_1d[1] - k_1d[0]
     number_of_points = len(k_1d)

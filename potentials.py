@@ -1,8 +1,8 @@
 import numpy as np
+from scipy import special
 
 
-def make_inverse_long_coulomb_potential(grid, charge1, charge2, 
-                                        smear=1, grid_zero=1e-6):
+def get_inverse_long_coulomb(grid, charge1, charge2, smear=1, grid_zero=1e-6):
     """Calculate Fourier transformed long range part of Coulomb
     potential. Splitting of the potential on long and short parts is
     performed by the error function. Units of returned value can be 
@@ -24,3 +24,42 @@ def make_inverse_long_coulomb_potential(grid, charge1, charge2,
     v = (charge1 * charge2 / (np.pi * grid**2) 
          * np.exp(-np.pi**2 * grid**2 / smear**2))
     return v 
+
+
+def get_lj(solute, solvent, box, beta):
+    v = 0
+    for site in solute.sites:
+        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d[d < 1e-6] = 1e-6
+        d = 1.0 / d
+        r_min = site.rmin + solvent.rmin
+        frac = np.tensordot(r_min, d, axes=0)**6
+        eps = np.expand_dims(np.sqrt(site.epsilon * solvent.epsilon),
+                             axis=(1, 2, 3))
+        v += beta * eps * (frac**2 - 2 * frac)
+    return v
+
+
+def get_short_coulomb(solute, solvent, box, smear, dieps, beta):
+    v = 0
+    for site in solute.sites:
+        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d[d < 1e-6] = 1e-6
+        v += site.charge * special.erfc(d * smear) / d
+    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
+    return v
+
+
+def get_long_coulomb(solute, solvent, box, smear, dieps, beta):
+    """Calculate v_long * beta."""
+    v = 0
+    for site in solute.sites:
+        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
+        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d[d < 1e-6] = 1e-6
+        v += site.charge * special.erf(d * smear) / d
+    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
+    return v
+
