@@ -26,7 +26,7 @@ def get_inverse_long_coulomb(grid, charge1, charge2, smear=1, grid_zero=1e-6):
     return v 
 
 
-def get_lj(solute, solvent, box, beta):
+def get_lj(solute, solvent, box):
     v = 0
     for site in solute.sites:
         site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
@@ -37,29 +37,29 @@ def get_lj(solute, solvent, box, beta):
         frac = np.tensordot(r_min, d, axes=0)**6
         eps = np.expand_dims(np.sqrt(site.epsilon * solvent.epsilon),
                              axis=(1, 2, 3))
-        v += beta * eps * (frac**2 - 2 * frac)
+        v += eps * (frac**2 - 2 * frac)
     return v
 
 
-def get_short_coulomb(solute, solvent, box, smear, dieps, beta):
+def get_short_coulomb(solute, solvent, box, smear):
     v = 0
     for site in solute.sites:
         site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
         d = np.linalg.norm(box.r_grid - site_position, axis=0)
         d[d < 1e-6] = 1e-6
         v += site.charge * special.erfc(d * smear) / d
-    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
+    v = np.tensordot(solvent.charge, v, axes=0) 
     return v
 
 
-def get_long_coulomb(solute, solvent, box, smear, dieps, beta):
-    """Calculate v_long * beta."""
+def get_long_coulomb(solute, solvent, box, smear):
+    """Calculate long coulomb potential."""
     v = 0
     for site in solute.sites:
         site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
         d = np.linalg.norm(box.r_grid - site_position, axis=0)
         d[d < 1e-6] = 1e-6
         v += site.charge * special.erf(d * smear) / d
-    v = np.tensordot(solvent.charge, v, axes=0) * beta / dieps
+    v = np.tensordot(solvent.charge, v, axes=0)
     return v
 

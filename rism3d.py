@@ -28,22 +28,19 @@ class Rism3D:
         self._chi = _get_susceptibility(self._solvent, self._box)
         self._v_s = (potentials.get_lj(self._solute, 
                                        self._solvent, 
-                                       self._box, 
-                                       self._beta) 
+                                       self._box) 
                      + potentials.get_short_coulomb(self._solute, 
                                                     self._solvent, 
                                                     self._box, 
-                                                    self._parameters["smear"], 
-                                                    self._parameters["dieps"], 
-                                                    self._beta)
+                                                    self._parameters["smear"])
                      )
         self._v_l = potentials.get_long_coulomb(self._solute, 
                                                 self._solvent, 
                                                 self._box, 
-                                                self._parameters["smear"], 
-                                                self._parameters["dieps"], 
-                                                self._beta)
-        self._theta = _get_renormalized_potential(self._solute, self._solvent, 
+                                                self._parameters["smear"]
+                                               )
+        self._theta = _get_renormalized_potential(self._solute, 
+                                                  self._solvent, 
                                                   self._box, 
                                                   self._parameters["smear"], 
                                                   self._beta)
@@ -71,7 +68,7 @@ class Rism3D:
 
     def get_c(self):
         c_s = self._use_closure()
-        c = c_s - self._v_l
+        c = c_s - self.beta * self._v_l
         return c
 
     def _use_picard_solver(self):
@@ -128,19 +125,19 @@ class Rism3D:
         self._gamma = _get_inverse_fourier_transform(gamma_ft, self._box)
 
     def _use_hnc(self):
-        c_s = np.exp(-self._v_s + self._gamma) - 1 - self._gamma
+        c_s = np.exp(-self.beta * self._v_s + self._gamma) - 1 - self._gamma
         return c_s
 
     def _use_kh(self):
         c_s = np.zeros_like(self._gamma)
-        e = -self._v_s + self._gamma
+        e = -self.beta * self._v_s + self._gamma
         c_s[e > 0] = -self._v_s[e > 0]
         c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
         return c_s
 
     def _use_pse3(self):
         c_s = np.zeros_like(self._gamma)
-        e = -self._v_s + self._gamma
+        e = -self.beta * self._v_s + self._gamma
         c_s[e > 0] = (-self._v_s[e > 0] 
                       + (1.0 / 2.0) * e[e > 0]**2 
                       + (1.0 / 6.0) * e[e > 0]**3)
