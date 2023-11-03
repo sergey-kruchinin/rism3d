@@ -8,12 +8,15 @@ class Box:
         
         Works correctly for centered solutes only.
         """
-        size = (np.max(solute.coordinates, axis=0) 
-                - np.min(solute.coordinates, axis=0) 
-                + 2 * buffer) 
-        npoints = np.ceil(size / deltas).astype(int) + 1
-        borders = (npoints - 1) * deltas / 2
-        box = [(-b, b, p) for b, p in zip(borders, npoints)]
+        min_bounds = np.min(solute.coordinates, axis=0) - buffer
+        max_bounds = np.max(solute.coordinates, axis=0) + buffer
+        box_dimensions = max_bounds - min_bounds
+        npoints = np.ceil(box_dimensions / deltas).astype(int) + 1
+        half_widths = (npoints - 1) * deltas / 2
+        box_center = solute.get_center()
+        min_bounds = box_center - half_widths
+        max_bounds = box_center + half_widths
+        box = [(m, M, p) for m, M, p in zip(min_bounds, max_bounds, npoints)]
         self._r_grid = self._get_r_grid(box)
         self._k_grid = self._get_k_grid(npoints, deltas)
         self._delta = np.eye(3) * deltas
