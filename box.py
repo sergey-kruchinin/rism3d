@@ -4,10 +4,7 @@ from scipy import fft
 
 class Box:
     def __init__(self, solute, deltas, buffer):
-        """Create box around solute.
-        
-        Works correctly for centered solutes only.
-        """
+        """Create box around solute."""
         min_bounds = np.min(solute.coordinates, axis=0) - buffer
         max_bounds = np.max(solute.coordinates, axis=0) + buffer
         box_dimensions = max_bounds - min_bounds
