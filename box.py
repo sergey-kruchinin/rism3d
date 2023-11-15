@@ -20,7 +20,7 @@ class Box:
             ValueError : When at least one value of buffer is 
                          negative.
         """
-        if buffer.any() < 0:
+        if np.any(buffer < 0):
             raise ValueError("Box buffer value(s) " 
                              + str(buffer) 
                              + " cannot be negative")
