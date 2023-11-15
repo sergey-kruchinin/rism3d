@@ -12,7 +12,7 @@ class Box:
                      center.
             deltas : 1d ndarray. Grid spacings for every of three 
                      dimensions.
-            buffer : scalar of 1d ndarray. Space between origin and box 
+            buffer : scalar or 1d ndarray. Space between origin and box 
                      faces for every dimension. When only one value is 
                      supplied it used as common value and resulting Box
                      will be cubic.
@@ -55,10 +55,10 @@ class Box:
     @classmethod
     def create_from_dx(cls, dx):
         """Constructor.
-        Create box from the openDX object.
+        Create box from the openDX instance.
 
         Parameters:
-            dx : openDX object.
+            dx : openDX instance.
         """
         deltas = np.diagonal(dx.delta)
         min_border = dx.origin
