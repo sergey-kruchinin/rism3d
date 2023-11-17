@@ -29,18 +29,6 @@ def read_mdl(mdl_file, molarity):
     return data
 
 
-def select_pocket_region(r_grid, pocket):
-    """Define grid points belonging to pocket region.
-
-    Currently, only box pockets are supported.
-    """
-    selection = np.ones_like(r_grid[0], dtype=bool)
-    for p, g in zip(pocket, r_grid):
-        selection = np.logical_and(selection, 
-                                   np.logical_and(g > p[0], g < p[1]))
-    return selection
-
-
 def _split_solute(self, solute, pocket, periphery):
     keys_list = solute.keys()
     pocket_atoms = {k: [] for k in keys_list}

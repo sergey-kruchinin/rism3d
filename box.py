@@ -84,6 +84,25 @@ class Box:
     def cell_volume(self):
         return self._cell_volume
 
+    def select(self, box):
+        """Select grid points in real space laying inside the bounds
+        of another Box.
+
+        Parameters:
+            box : Box instance. Box with bounds for selection.
+        Returns:
+            3d ndarray : Bool indexing array for r_grid of current 
+                         Box defining points laying inside supplying 
+                         Box bounds.
+        """
+        selection = np.ones_like(self.r_grid[0], dtype=bool)
+        min_bounds = box.r_grid[:, 0, 0, 0]
+        max_bounds = box.r_grid[:, -1, -1, -1]
+        for m, M, r in zip(min_bounds, max_bounds, self.r_grid):
+            tmp = np.logical_and(r > m, r < M)
+            selection = np.logical_and(selection, tmp)
+        return selection
+
     def _get_r_grid(self, box):
         grids = [np.linspace(*i) for i in box]
         r_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
