@@ -40,7 +40,7 @@ class MDIIS:
         """Take new vector (v) and residue (r) 
         and return optimized solution.
         """
-        current_norm = self._norm(r)
+        current_norm = self._get_residual_rms_norm(r)
         if current_norm > self._r_max * self._minimal_norm:
             v_min = self._minimal_vector()
             self._flush()
@@ -61,11 +61,18 @@ class MDIIS:
         """
         return len(self._vectors)
     
-    def _norm(self, x):
-        """Calculate norm of vector x.
+    def _get_residual_rms_norm(self, x):
+        """Calculate residual RMS norm.
         """
-        norm = np.linalg.norm(x) / np.sqrt(x.size)
-        return norm
+        rms_norm = np.sum([np.linalg.norm(r)**2 for r in self._residuals])
+        rms_norm += np.linalg.norm(x)**2
+        new_mdiis_size = self.size() + 1
+        if self.size == self._N:
+            rms_norm -= np.linalg.norm(self._residuals[-1])
+            new_mdiis_size = self.size()
+        rms_norm /= (x.size * new_mdiis_size)
+        rms_norm = np.sqrt(rms_norm)
+        return rms_norm
 
     def _minimal_vector(self):
         """Return MDIIS vector with minimal norm.
@@ -92,7 +99,7 @@ class MDIIS:
         """
         self._vectors.appendleft(v)
         self._residuals.appendleft(r)
-        self._residual_norms.appendleft(self._norm(r))
+        self._residual_norms.appendleft(self._get_residual_rms_norm(r))
         self._minimal_norm = np.min(self._residual_norms)
         self._update_matrix()
 
