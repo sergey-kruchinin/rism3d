@@ -16,25 +16,49 @@ class SolventSite:
     def charge(self):
         return self._charge
 
+    @charge.setter
+    def charge(self, value):
+        self._charge = value
+
     @property
     def rmin(self):
         return self._rmin
+
+    @rmin.setter
+    def rmin(self, value):
+        self._rmin = value
 
     @property
     def epsilon(self):
         return self._epsilon
 
+    @epsilon.setter
+    def epsilon(self, value):
+        self._epsilon = value
+
     @property
     def density(self):
         return self._density
+
+    @density.setter
+    def density(self, value):
+        self._density = value
 
     @property
     def multy(self):
         return self._multy
 
+    @multy.setter
+    def multy(self, value):
+        self._multy = value
+
     @property
     def coordinates(self):
         return self._coordinates
+
+    @coordinates.setter
+    def coordinates(self, value):
+        self._coordinates = value
 
 
 class SolventIterator:
