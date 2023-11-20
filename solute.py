@@ -13,17 +13,33 @@ class SoluteSite:
     def charge(self):
         return self._charge
 
+    @charge.setter
+    def charge(self, value):
+        self._charge = value
+
     @property
     def rmin(self):
         return self._rmin
+
+    @rmin.setter
+    def rmin(self, value):
+        self._rmin = value
 
     @property
     def epsilon(self):
         return self._epsilon
 
+    @epsilon.setter
+    def epsilon(self, value):
+        self._epsilon = value
+
     @property
     def coordinates(self):
         return self._coordinates
+
+    @coordinates.setter
+    def coordinates(self, value):
+        self._coordinates = value
 
 
 class SoluteIterator:
