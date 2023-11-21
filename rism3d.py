@@ -131,7 +131,7 @@ class Rism3D:
     def _use_kh(self):
         c_s = np.zeros_like(self._gamma)
         e = -self.beta * self._v_s + self._gamma
-        c_s[e > 0] = -self._v_s[e > 0]
+        c_s[e > 0] = -self.beta * self._v_s[e > 0]
         c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
         return c_s
 
