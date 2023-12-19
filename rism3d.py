@@ -44,7 +44,9 @@ class Rism3D:
                                                   self._box, 
                                                   self._parameters["smear"], 
                                                   self._beta)
-        self._gamma = np.zeros_like(self._v_s)
+#        self._gamma = np.zeros_like(self._v_s)
+        self._step = 0
+        self._set_solver()
         
     @property
     def parameters(self):
@@ -58,8 +60,20 @@ class Rism3D:
     def beta(self):
         return self._beta
 
+#    def solve(self):
+#        self._use_solver()
+
     def solve(self):
-        self._use_solver()
+        while True:
+            self.iterate()
+            e = np.max(np.abs(self._gamma - self._gamma_old))
+            print("{0:<6d}{1:18.8e}".format(self._step, e))
+            if step >= self._parameters["nsteps"]:
+            raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
+        if np.isnan(e) or np.isinf(e):
+            raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
+        if e < self._parameters["accuracy"]:
+            break
 
     def get_h(self):
         c_s = self._use_closure()
@@ -71,6 +85,35 @@ class Rism3D:
         c = c_s - self.beta * self._v_l
         return c
 
+    def _set_solver(self):
+        setters = {"picard": self._set_picard_solver, 
+                   "mdiis": self._use_mdiis_solver}
+        setters[self._parameters["solver"]]
+
+    def _set_picard_solver(self):
+        self._mix = self._parameters["mix"]
+        self._gamma = np.zeros_like(self._v_s)
+        self._gamma_old = np.zeros_like(self._v_s)
+        print("{0:<6s}{1:>18s}".format("step", "accuracy"))
+        self.iterate = self._step_picard
+        
+    def _step_picard(self):
+        c_s = self._use_closure()
+        self._use_oz(c_s)
+        self._gamma -= self._theta 
+        e = np.max(np.abs(self._gamma - self._gamma_old))
+        self._gamma = (self._mix * self._gamma 
+                       + (1 - self._mix) * self._gamma_old)
+        self._step += 1
+        self._gamma_old = self._gamma.copy()
+        print("{0:<6d}{1:18.8e}".format(step, e))
+        if step >= self._parameters["nsteps"]:
+            raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
+        if np.isnan(e) or np.isinf(e):
+            raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
+        if e < self._parameters["accuracy"]:
+            break
+        
     def _use_picard_solver(self):
         mix = self._parameters["mix"]
         gamma_old = self._gamma.copy()
