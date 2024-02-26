@@ -22,9 +22,6 @@ class Rism3D:
                     "kh": self._use_kh, 
                     "pse3": self._use_pse3}
         self._use_closure = closures[self._parameters["closure"]]
-        solvers = {"picard": self._use_picard_solver, 
-                   "mdiis": self._use_mdiis_solver}
-        self._use_solver = solvers[self._parameters["solver"]]
         self._chi = _get_susceptibility(self._solvent, self._box)
         self._v_s = (potentials.get_lj(self._solute, 
                                        self._solvent, 
@@ -45,7 +42,24 @@ class Rism3D:
                                                   self._parameters["smear"], 
                                                   self._beta)
         self._gamma = np.zeros_like(self._v_s)
-        
+        self._c_s = np.zeros_like(self._v_s)
+
+    @property
+    def gamma(self):
+        return self._gamma
+
+    @gamma.setter
+    def gamma(self, value):
+        self._gamma = value
+
+    @property
+    def closure(self):
+        return self._use_closure
+
+    @property
+    def oz(self):
+        return self._use_oz
+
     @property
     def parameters(self):
         return self._parameters
@@ -58,91 +72,39 @@ class Rism3D:
     def beta(self):
         return self._beta
 
-    def solve(self):
-        self._use_solver()
-
     def get_h(self):
-        c_s = self._use_closure()
-        h = c_s + self._gamma
+        h = self._c_s + self._gamma
         return h
 
     def get_c(self):
-        c_s = self._use_closure()
-        c = c_s - self.beta * self._v_l
+        c = self._c_s - self.beta * self._v_l
         return c
 
-    def _use_picard_solver(self):
-        mix = self._parameters["mix"]
-        gamma_old = self._gamma.copy()
-        step = 0
-        print("{0:<6s}{1:>18s}".format("step", "accuracy"))
-        while True:
-            c_s = self._use_closure()
-            self._use_oz(c_s)
-            self._gamma -= self._theta 
-            e = np.max(np.abs(self._gamma - gamma_old))
-            self._gamma = mix * self._gamma + (1 - mix) * gamma_old
-            step += 1
-            gamma_old = self._gamma.copy()
-            print("{0:<6d}{1:18.8e}".format(step, e))
-            if step >= self._parameters["nsteps"]:
-                raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
-            if np.isnan(e) or np.isinf(e):
-                raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
-            if e < self._parameters["accuracy"]:
-                break
-                
-    def _use_mdiis_solver(self):
-        m = mdiis.MDIIS(self._parameters["mdiis_vectors"],
-                        self._parameters["mdiis_mix"],
-                        self._parameters["mdiis_max_residue"]
-                        )
-        gamma_old = self._gamma.copy()
-        step = 0
-        print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
-        while True:
-            c_s = self._use_closure()
-            self._use_oz(c_s)
-            self._gamma -= self._theta 
-            residual = self._gamma - gamma_old
-            self._gamma = m.optimize(gamma_old, residual)
-            e = np.max(np.abs(residual))
-            step += 1
-            gamma_old = self._gamma.copy()
-            print(f"{step:<6d}{e:18.8e}{m.size():>7d}")
-            if step >= self._parameters["nsteps"]:
-                raise exceptions.Rism3DMaxStepError("The maximum number of steps has been reached", step, e)
-            if np.isnan(e) or np.isinf(e):
-                raise exceptions.Rism3DConvergenceError("The solution has been diverged", step)
-            if e < self._parameters["accuracy"]:
-                break
-
-    def _use_oz(self, c_s):
-        c_s_ft = _get_fourier_transform(c_s, self._box)
+    def _use_oz(self):
+        c_s_ft = _get_fourier_transform(self._c_s, self._box)
         gamma_ft = np.sum(self._chi 
                           * np.expand_dims(c_s_ft, axis=1),
                           axis=0) - c_s_ft
-        self._gamma = _get_inverse_fourier_transform(gamma_ft, self._box)
+        self._gamma = _get_inverse_fourier_transform(gamma_ft, self._box) 
+        self._gamma -= self._theta
 
     def _use_hnc(self):
-        c_s = np.exp(-self.beta * self._v_s + self._gamma) - 1 - self._gamma
-        return c_s
+        self._c_s = (np.exp(-self.beta * self._v_s + self._gamma) 
+                     - 1 - self._gamma)
 
     def _use_kh(self):
-        c_s = np.zeros_like(self._gamma)
+        self._c_s = np.zeros_like(self._gamma)
         e = -self.beta * self._v_s + self._gamma
-        c_s[e > 0] = -self.beta * self._v_s[e > 0]
-        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
-        return c_s
+        self._c_s[e > 0] = -self.beta * self._v_s[e > 0]
+        self._c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
 
     def _use_pse3(self):
-        c_s = np.zeros_like(self._gamma)
+        self._c_s = np.zeros_like(self._gamma)
         e = -self.beta * self._v_s + self._gamma
-        c_s[e > 0] = (-self._v_s[e > 0] 
-                      + (1.0 / 2.0) * e[e > 0]**2 
-                      + (1.0 / 6.0) * e[e > 0]**3)
-        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
-        return c_s
+        self._c_s[e > 0] = (-self._v_s[e > 0] 
+                            + (1.0 / 2.0) * e[e > 0]**2 
+                            + (1.0 / 6.0) * e[e > 0]**3)
+        self._c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
 
 
 def _get_susceptibility(solvent, box):
