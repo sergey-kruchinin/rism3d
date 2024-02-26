@@ -202,20 +202,18 @@ class Rism3D:
                      - 1 - self._gamma)
 
     def _use_kh(self):
-        c_s = np.zeros_like(self._gamma)
+        self._c_s = np.zeros_like(self._gamma)
         e = -self.beta * self._v_s + self._gamma
-        c_s[e > 0] = -self.beta * self._v_s[e > 0]
-        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
-        return c_s
+        self._c_s[e > 0] = -self.beta * self._v_s[e > 0]
+        self._c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
 
     def _use_pse3(self):
-        c_s = np.zeros_like(self._gamma)
+        self._c_s = np.zeros_like(self._gamma)
         e = -self.beta * self._v_s + self._gamma
-        c_s[e > 0] = (-self._v_s[e > 0] 
-                      + (1.0 / 2.0) * e[e > 0]**2 
-                      + (1.0 / 6.0) * e[e > 0]**3)
-        c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
-        return c_s
+        self._c_s[e > 0] = (-self._v_s[e > 0] 
+                            + (1.0 / 2.0) * e[e > 0]**2 
+                            + (1.0 / 6.0) * e[e > 0]**3)
+        self._c_s[e <= 0] = np.exp(e[e <= 0]) - 1 - self._gamma[e <= 0] 
 
 
 def _get_susceptibility(solvent, box):
