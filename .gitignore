@@ -4,3 +4,21 @@
 # pycache directory
 __pycache__
 
+# versions for ChGN
+for_chgn
+
+# jupyter notebooks
+jupyter
+
+# papers
+literature
+
+# files created by my 3D-RISM
+output
+
+# files for testing primarily created by AmberTools 3D-RISM
+test
+
+# notes
+NOTES.txt
+
