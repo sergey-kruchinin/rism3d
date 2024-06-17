@@ -1,3 +1,4 @@
+import exceptions
 import numpy as np
 
 
@@ -21,7 +22,7 @@ class Solver:
                                        + (1 - self._mix) * self._gamma_0)
         if self.step >= self._nsteps:
             error_message = "The maximum number of steps has been reached" 
-            raise exceptions.Rism3DMaxStepError(error_message, step)
+            raise exceptions.Rism3DMaxStepError(error_message, self.step)
 
     def solve(self):
         print("{0:<6s}{1:>18s}".format("step", "accuracy"))

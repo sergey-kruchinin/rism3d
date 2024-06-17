@@ -31,7 +31,7 @@ class Solver:
         self._rism3d_instance.gamma = self._m.optimize(self._gamma_0, residual)
         if self.step >= self._nsteps:
             error_message = "The maximum number of steps has been reached"
-            raise exceptions.Rism3DMaxStepError(error_message, step)
+            raise exceptions.Rism3DMaxStepError(error_message, self.step)
 
     def solve(self):
         print("{0:<6s}{1:>18s}{2:>7s}".format("step", "accuracy", "MDIIS"))
