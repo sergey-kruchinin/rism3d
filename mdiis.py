@@ -41,7 +41,8 @@ class Solver:
             print(f"{self.step:<6d}{e:18.8e}{self._m.size():>7d}")
             if np.isnan(e) or np.isinf(e):
                 error_message = "The solution has been diverged"
-                raise exceptions.Rism3DConvergenceError(error_message, step)
+                raise exceptions.Rism3DConvergenceError(error_message, 
+                                                        self.step)
             if e < self._accuracy:
                 break
 

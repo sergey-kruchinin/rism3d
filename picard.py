@@ -32,7 +32,8 @@ class Solver:
             print("{0:<6d}{1:18.8e}".format(self.step, e))
             if np.isnan(e) or np.isinf(e):
                 error_message ="The solution has been diverged" 
-                raise exceptions.Rism3DConvergenceError(error_message, step)
+                raise exceptions.Rism3DConvergenceError(error_message, 
+                                                        self.step)
             if e < self._accuracy:
                 break
 
