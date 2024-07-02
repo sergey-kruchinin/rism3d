@@ -36,11 +36,11 @@ class Rism3D:
                                                 self._box, 
                                                 self._parameters["smear"]
                                                )
-        self._theta = _get_renormalized_potential(self._solute, 
-                                                  self._solvent, 
-                                                  self._box, 
-                                                  self._parameters["smear"], 
-                                                  self._beta)
+        self._theta = _get_long_tcf(self._solute, 
+                                    self._solvent, 
+                                    self._box, 
+                                    self._parameters["smear"], 
+                                    self._beta)
         self._gamma = np.zeros_like(self._v_s)
         self._c_s = np.zeros_like(self._v_s)
 
@@ -134,28 +134,29 @@ def _get_inverse_fourier_transform(data, box):
     return inv
 
 
-def _get_renormalized_potential(solute, solvent, box, smear, beta):
+def _get_long_tcf(solute, solvent, box, smear, beta):
     theta_site_ft = np.einsum("i,ijk->jk", solvent.charge, 
                               solvent.susceptibility)
     k_1d = solvent.k_grid
     phi_ft = potentials.get_inverse_long_coulomb(k_1d, 1, 1, smear) * beta 
     theta_site_ft = theta_site_ft * phi_ft
-    k_delta = k_1d[1] - k_1d[0]
-    number_of_points = len(k_1d)
-    r_delta = 1.0 / (2 * number_of_points * k_delta)
-    theta_site = fourier.calculate_inverse_fourier_bessel(theta_site_ft, 
-                                                          r_delta, 
-                                                          k_delta)
-    r_1d = np.arange(number_of_points) * r_delta
-    f = interpolate.interp1d(r_1d, 
-                             theta_site, 
+    theta_site_ft_at_0 = interpolate.interp1d(k_1d[1:5], 
+                                              theta_site_ft[:, 1:5], 
+                                              kind="cubic",
+                                              fill_value="extrapolate"
+                                             )
+    theta_site_ft[:, 0] = theta_site_ft_at_0(0)
+    f = interpolate.interp1d(k_1d, 
+                             theta_site_ft, 
                              kind="cubic", 
                              fill_value="extrapolate")
-    theta_shape = (solvent.multy.shape + box.r_grid.shape[1:])
-    theta = np.zeros(theta_shape)
+    wave_numbers = np.linalg.norm(box.k_grid, axis=0)
+    theta_site_ft_interpolated = f(wave_numbers)
+    theta_ft_shape = (solvent.multy.shape + box.k_grid.shape[1:])
+    theta_ft = np.zeros(theta_ft_shape)
     for site in solute.sites:
         site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        distances = np.linalg.norm(box.r_grid - site_position, axis=0)
-        theta_site_interpolated = f(distances)
-        theta = theta + site.charge * theta_site_interpolated
+        site_shift = np.exp(-2j * np.pi * np.sum(box.k_grid * site_position, axis=0))
+        theta_ft = theta_ft + site_shift * site.charge * theta_site_ft_interpolated
+    theta = _get_inverse_fourier_transform(theta_ft, box)
     return theta 
