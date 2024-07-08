@@ -119,18 +119,19 @@ def _get_susceptibility(solvent, box):
 
 def _get_fourier_transform(data, box):
     dV = box.cell_volume
-    shift = np.expand_dims(box.r_grid[:, 0, 0, 0], axis=(1, 2, 3))
-    K = np.prod(np.exp(-2j * np.pi * box.k_grid * shift), axis=0)
-    inv = fft.rfftn(data, axes=(-3, -2, -1), workers=-1) * dV * K
+    inv = (fft.rfftn(data, axes=(-3, -2, -1), workers=-1) 
+           * dV 
+           * box.r_grid_prefactor)
     return inv
 
 
 def _get_inverse_fourier_transform(data, box):
     dV = box.cell_volume
-    shift = np.expand_dims(box.r_grid[:, 0, 0, 0], axis=(1, 2, 3))
-    K = np.prod(np.exp(2j * np.pi * box.k_grid * shift), axis=0)
     shape = box.r_grid[0].shape
-    inv = fft.irfftn(data * K, s=shape, axes=(-3, -2, -1), workers=-1) / dV
+    inv = fft.irfftn(data * box._r_grid_prefactor.conjugate(), 
+                     s=shape, 
+                     axes=(-3, -2, -1), 
+                     workers=-1) / dV
     return inv
 
 

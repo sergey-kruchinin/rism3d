@@ -34,6 +34,7 @@ class Box:
         self._k_grid = self._get_k_grid(npoints, deltas)
         self._delta = np.eye(3) * deltas
         self._cell_volume = np.prod(deltas)
+        self._r_grid_prefactor = self._get_r_grid_prefactor()
 
     @classmethod
     def around_solute(cls, solute, deltas, buffer):
@@ -84,6 +85,10 @@ class Box:
     def cell_volume(self):
         return self._cell_volume
 
+    @property
+    def r_grid_prefactor(self):
+        return self._r_grid_prefactor
+
     def select(self, box):
         """Select grid points in real space laying inside the bounds
         of another Box.
@@ -114,3 +119,8 @@ class Box:
         grids[-1] = fft.rfftfreq(*points_and_steps[-1])
         k_grid = np.stack(np.meshgrid(*grids, indexing="ij"))
         return k_grid
+
+    def _get_r_grid_prefactor(self):
+        shift = np.expand_dims(self.r_grid[:, 0, 0, 0], axis=(1, 2, 3))
+        prefactor = np.exp(-2j * np.pi * np.sum(self.k_grid * shift, axis=0))
+        return prefactor
