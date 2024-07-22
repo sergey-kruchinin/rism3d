@@ -77,7 +77,7 @@ class MDIIS:
         self._residuals = deque([], self._N)
         self._matrix = np.zeros((1, 1))
         self._residual_norms = deque([], self._N)
-        self._minimal_norm = np.infty
+        self._minimal_norm = np.inf
         self._b = np.full(1, -1.0)
 
     def optimize(self, v, r):
@@ -155,5 +155,5 @@ class MDIIS:
         self._residuals.clear()
         self._residual_norms.clear()
         self._matrix = np.zeros((1, 1))
-        self._minimal_norm = np.infty
+        self._minimal_norm = np.inf
         self._b = np.full(1, -1.0)
