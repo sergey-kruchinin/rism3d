@@ -29,8 +29,7 @@ def get_inverse_long_coulomb(grid, charge1, charge2, smear=1, grid_zero=1e-6):
 def get_lj(solute, solvent, box):
     v = 0
     for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d = box.get_distances(origin=site.coordinates)
         d[d < 1e-6] = 1e-6
         d = 1.0 / d
         r_min = site.rmin + solvent.rmin
@@ -44,8 +43,7 @@ def get_lj(solute, solvent, box):
 def get_short_coulomb(solute, solvent, box, smear):
     v = 0
     for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d = box.get_distances(origin=site.coordinates)
         d[d < 1e-6] = 1e-6
         v += site.charge * special.erfc(d * smear) / d
     v = np.tensordot(solvent.charge, v, axes=0) 
@@ -56,8 +54,7 @@ def get_long_coulomb(solute, solvent, box, smear):
     """Calculate long coulomb potential."""
     v = 0
     for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        d = np.linalg.norm(box.r_grid - site_position, axis=0)
+        d = box.get_distances(origin=site.coordinates)
         d[d < 1e-6] = 1e-6
         v += site.charge * special.erf(d * smear) / d
     v = np.tensordot(solvent.charge, v, axes=0)

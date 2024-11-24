@@ -108,7 +108,7 @@ class Rism3D:
 
 
 def _get_susceptibility(solvent, box):
-    k_distances = np.linalg.norm(box.k_grid, axis=0)
+    k_distances = box.get_inv_distances()
     f = interpolate.interp1d(solvent.k_grid, 
                              solvent.susceptibility, 
                              kind="cubic", 
@@ -127,9 +127,8 @@ def _get_fourier_transform(data, box):
 
 def _get_inverse_fourier_transform(data, box):
     dV = box.cell_volume
-    shape = box.r_grid[0].shape
     inv = fft.irfftn(data * box._r_grid_prefactor.conjugate(), 
-                     s=shape, 
+                     s=box.shape, 
                      axes=(-3, -2, -1), 
                      workers=-1) / dV
     return inv
@@ -151,13 +150,15 @@ def _get_long_tcf(solute, solvent, box, smear, beta):
                              theta_site_ft, 
                              kind="cubic", 
                              fill_value="extrapolate")
-    wave_numbers = np.linalg.norm(box.k_grid, axis=0)
-    theta_site_ft_interpolated = f(wave_numbers)
-    theta_ft_shape = (solvent.multy.shape + box.k_grid.shape[1:])
+    theta_site_ft_interpolated = f(box.get_inv_distances())
+    theta_ft_shape = (solvent.multy.shape + box.inv_shape)
     theta_ft = np.zeros(theta_ft_shape)
-    for site in solute.sites:
-        site_position = np.expand_dims(site.coordinates, axis=(1, 2, 3))
-        site_shift = np.exp(-2j * np.pi * np.sum(box.k_grid * site_position, axis=0))
-        theta_ft = theta_ft + site_shift * site.charge * theta_site_ft_interpolated
+    for s in solute.sites:
+        ri_k = (np.expand_dims(s.coordinates[0] * box.x_inv_grid, axis=(1, 2))
+                + np.expand_dims(s.coordinates[1] * box.y_inv_grid, axis=(1,))
+                + s.coordinates[2] * box.z_inv_grid)
+        site_prefactor = np.exp(-2j * np.pi * ri_k)
+        theta_site_ft = site_prefactor * s.charge * theta_site_ft_interpolated
+        theta_ft = theta_ft + theta_site_ft
     theta = _get_inverse_fourier_transform(theta_ft, box)
     return theta 
