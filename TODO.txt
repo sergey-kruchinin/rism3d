@@ -1,0 +1,27 @@
+TODO:
+* добавить метод add() в Solute. Метод должен добавлять атом к существующему 
+  солюту. Возможно для этого придется сменить внутреннее хранение данных с 
+  numpy массивов на python lists. Это позволит упростить создание кармана в
+  функции get_pocket() в telescope.
+
+* переработать класс Box. заменить трехмерные массивы для хранения x, y и z 
+  сеток на одномерные. Ввести функцию distances(origin) возвращающую сетку
+  расстояний от origin до точек сетки. 
+
+* переделать дельты в боксе с матриц на вектора
+
+* mdiis:
+    ** Переименовать _norm в _get_rms_norm для ясности
+    ** Заменить getter size() на size с использованием декоратора @property
+
+* potentials.py: get_inverse_long_coulomb() проверка на ноль для точек сетки не работает для значений меньше нуля
+
+* rism3d.py: _get_inverse_fourier_transform() исправить "_r_grid_prefactor" to "r_grid_prefactor"
+
+* In solvers change calls self._use_closure and self._use_oz to self._rism3d_instance.closure() and self._rism3d_instance.oz()
+
+* mdiis.py: line 31: change gamma_0 in m.optimize to rism3d_instance.gamma
+
+* Add Rism3D method for flushing state (set c and gamma to zero)
+
+* Change Rism3D getters get_h and get_c to attributes with use of @property
