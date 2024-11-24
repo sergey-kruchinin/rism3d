@@ -3,7 +3,7 @@ import warnings
 import copy
 
 
-def sfe(rism3d, selection=True):
+def sfe(rism3d, selection=True, dcf_correction=True):
     """Calculate solvation free energy.
 
     Parameters:
@@ -14,7 +14,8 @@ def sfe(rism3d, selection=True):
         Solvation free energy value.
     """
     sfe_type = {"hnc": _sfe_hnc, "kh": _sfe_kh}
-    sfe = sfe_type[rism3d.parameters["closure"]](rism3d, selection)
+    sfe = sfe_type[rism3d.parameters["closure"]](rism3d, selection, 
+                                                 dcf_correction)
     return sfe 
 
 
@@ -34,7 +35,7 @@ def pressure_correction(rism3d, selection=True):
     return pc 
 
 
-def sfe_pc(rism3d, selection=True):
+def sfe_pc(rism3d, selection=True, dcf_correction=True):
     """Calculate solvation free energy with pressure correction.
 
     Parameters:
@@ -44,11 +45,12 @@ def sfe_pc(rism3d, selection=True):
     Returns:
         Solvation free energy value.
     """
-    sfe_pc = sfe(rism3d, selection) + pressure_correction(rism3d, selection)
+    sfe_pc = (sfe(rism3d, selection, dcf_correction) 
+              + pressure_correction(rism3d, selection))
     return sfe_pc
     
 
-def _sfe_hnc(rism3d, selection=True):
+def _sfe_hnc(rism3d, selection=True, dcf_correction=True):
     """Calculate solvation free energy for HNC closure.
 
     Parameters:
@@ -62,14 +64,16 @@ def _sfe_hnc(rism3d, selection=True):
     c = rism3d.get_c() * selection
     rho = rism3d._solvent.density
     dV = rism3d.box.cell_volume
-    dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
+    dcf_corrections = 0
+    if dcf_correction:
+        dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 - c - 0.5 * h * c, axis=(1, 2, 3)) * dV
                  - dcf_corrections)
     sfe = np.sum(integrals * rho) / rism3d.beta
     return sfe 
 
 
-def _sfe_kh(rism3d, selection=True):
+def _sfe_kh(rism3d, selection=True, dcf_correction=True):
     """Calculate solvation free energy for KH closure.
 
     Parameters:
@@ -83,7 +87,9 @@ def _sfe_kh(rism3d, selection=True):
     c = rism3d.get_c() * selection
     rho = rism3d._solvent.density
     dV = rism3d.box.cell_volume
-    dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
+    dcf_corrections = 0
+    if dcf_correction:
+        dcf_corrections = _calculate_dcf_corrections(rism3d, selection)
     integrals = (np.sum(0.5 * h**2 * np.heaviside(-h, 0) - c - 0.5 * h * c, 
                         axis=(1, 2, 3)) * dV
                  - dcf_corrections)
