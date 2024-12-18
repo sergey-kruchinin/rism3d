@@ -1,6 +1,6 @@
 import numpy as np
 import amberParm
-import constants
+from . import constants
 
 
 class SolventSite:

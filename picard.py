@@ -1,5 +1,5 @@
-import exceptions
 import numpy as np
+from . import exceptions
 
 
 class Solver:

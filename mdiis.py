@@ -2,7 +2,7 @@ import warnings
 from collections import deque
 import numpy as np
 from scipy import linalg
-import exceptions
+from . import exceptions
 warnings.filterwarnings("error",
                         category=linalg.LinAlgWarning,
                         module="mdiis")

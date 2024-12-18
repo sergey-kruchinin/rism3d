@@ -1,13 +1,8 @@
+import itertools
 import copy
 import numpy as np
-from scipy import fft
-from scipy import interpolate
-import itertools
-import constants
-import mdiis
-import exceptions
-import potentials
-import fourier
+from scipy import fft, interpolate
+from . import constants, mdiis, exceptions, potentials, fourier
 
 
 class Rism3D:
