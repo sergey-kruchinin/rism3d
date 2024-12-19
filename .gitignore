@@ -22,3 +22,6 @@ examples
 # notes
 NOTES.txt
 
+# distribution / packaging
+build/
+*.egg-info/

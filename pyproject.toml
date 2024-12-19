@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rism3d"
+version = "0.5.0"
+description = "Solve 3D-RISM system of equations"
+authors = [{ name = "Sergey E. Kruchinin", email = "kruchininse@gmail.com" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+keywords = ["RISM"]
+dependencies = [
+    "numpy >= 2.0.0",
+    "scipy >= 1.14.0", 
+    ]
+requires-python = ">=3.12"
+
+[project.urls]
+Homepage = "https://github.com/sergey-kruchinin/rism3d"
