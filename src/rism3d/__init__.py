@@ -7,4 +7,4 @@ from .mdiis import Solver as MDIISSolver
 from . import sfe
 from . import exceptions
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"

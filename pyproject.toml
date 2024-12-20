@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rism3d"
-version = "0.5.0"
+version = "0.5.1"
 description = "Solve 3D-RISM system of equations"
 authors = [{ name = "Sergey E. Kruchinin", email = "kruchininse@gmail.com" }]
 license = { file = "LICENSE" }
@@ -27,7 +27,7 @@ requires-python = ">=3.12"
 Homepage = "https://github.com/sergey-kruchinin/rism3d"
 
 [tool.bumpver]
-current_version = "0.5.0"
+current_version = "0.5.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
