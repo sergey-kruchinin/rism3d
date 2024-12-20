@@ -1,5 +1,5 @@
 import numpy as np
-import amberParm
+from . import amberParm
 
 
 class SoluteSite:
