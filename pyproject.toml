@@ -25,3 +25,21 @@ requires-python = ">=3.12"
 
 [project.urls]
 Homepage = "https://github.com/sergey-kruchinin/rism3d"
+
+[tool.bumpver]
+current_version = "0.5.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "Bump version {old_version} -> {new_version}"
+tag_message = "{new_version}"
+tag_scope = "default"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+    'version = "{version}"',
+]
+"src/rism3d/__init__.py" = ["{version}"]
+
